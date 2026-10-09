@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -85,7 +86,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Account created successfully.')),
       );
-      // Navigation to the login screen is connected in the next step.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     } on AuthException catch (e) {
       if (!mounted) return;
       // If the email is already taken, send the user back to step 1.
@@ -297,9 +301,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (isFirstStep)
                 Center(
                   child: TextButton(
-                    onPressed: () {
-                      // Login link is connected in the next step.
-                    },
+                    onPressed: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    ),
                     child: const Text('Already have an account? Log in'),
                   ),
                 ),
