@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'screens/register_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -98,22 +99,19 @@ class _IntroScreenState extends State<IntroScreen> {
     }
   }
 
-  // finish e duita state hote pare, pore decide hobe
+  // finish - opens the registration screen
   void _onFinish() {
-    // Navigator.pushReplacement(context,
-    //     MaterialPageRoute(
-    //         builder: (context) => Scaffold(
-    //           body: Center(
-    //             child: Text("Home Screen", style: TextStyle(fontSize: 25)),
-    //           ),
-    //         )
-    //     )
-    // );
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+    );
+  }
 
-    _pageController.animateToPage(
-      0,
-      duration: Duration(milliseconds: 600),
-      curve: Curves.easeInOut,
+  // login link on the last intro page
+  void _openLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 
@@ -200,6 +198,21 @@ class _IntroScreenState extends State<IntroScreen> {
                     child: Center(child: Logo(height: 32)),
                   )
                 : SizedBox.shrink(),
+
+            // login link - only on last page
+            _currentIdx == _pages.length - 1
+                ? Positioned(
+                    bottom: 100,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: TextButton(
+                        onPressed: _openLogin,
+                        child: const Text("Already have an account? Log in"),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ],
         ),
       ),
