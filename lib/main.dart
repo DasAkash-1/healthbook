@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'screens/register_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,9 +33,9 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
-      ),//
+      ), //
       home: IntroScreen(),
-    );//
+    ); //
   }
 }
 
@@ -47,7 +49,6 @@ class IntroScreen extends StatefulWidget {
 
 // state
 class _IntroScreenState extends State<IntroScreen> {
-
   final PageController _pageController = PageController();
   int _currentIdx = 0;
 
@@ -74,42 +75,43 @@ class _IntroScreenState extends State<IntroScreen> {
       title: "Ready to Start?",
       description: "Create your account and take control of your healthcare journey today.",
       imagePath: "assets/img_4.png",
-    )
+    ),
   ];
 
   // skip er logic
   void _skip() {
     _pageController.animateToPage(
-        _pages.length - 1,
-        duration: Duration(milliseconds: 600),
-        curve: Curves.easeInOut
+      _pages.length - 1,
+      duration: Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
     );
   }
+
   // next
   void _next() {
     if (_currentIdx < _pages.length - 1) {
-      _pageController.nextPage(duration: Duration(milliseconds: 600), curve: Curves.easeInOut);
-    }
-    else {
+      _pageController.nextPage(
+        duration: Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+    } else {
       _onFinish();
     }
   }
-  // finish e duita state hote pare, pore decide hobe
-  void _onFinish() {
-    // Navigator.pushReplacement(context,
-    //     MaterialPageRoute(
-    //         builder: (context) => Scaffold(
-    //           body: Center(
-    //             child: Text("Home Screen", style: TextStyle(fontSize: 25)),
-    //           ),
-    //         )
-    //     )
-    // );
 
-    _pageController.animateToPage(
-      0,
-      duration: Duration(milliseconds: 600),
-      curve: Curves.easeInOut,
+  // finish - opens the registration screen
+  void _onFinish() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+    );
+  }
+
+  // login link on the last intro page
+  void _openLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 
@@ -118,7 +120,8 @@ class _IntroScreenState extends State<IntroScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(  // wrap menu - option + return
+        child: Stack(
+          // wrap menu - option + return
           children: [
             PageView.builder(
               controller: _pageController,
@@ -130,40 +133,43 @@ class _IntroScreenState extends State<IntroScreen> {
               },
               itemBuilder: (context, idx) => _pages[idx],
             ),
-        
+
             // skip butn, last page e skip show korar dorkar nai
-            _currentIdx == _pages.length - 1 ? SizedBox.shrink(): Positioned(
-              bottom: 40,
-              left: 20,
-              child: TextButton(
-                  onPressed: _skip,
-                  child: Text("Skip",
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600
+            _currentIdx == _pages.length - 1
+                ? SizedBox.shrink()
+                : Positioned(
+                    bottom: 40,
+                    left: 20,
+                    child: TextButton(
+                      onPressed: _skip,
+                      child: Text(
+                        "Skip",
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                  )
-              ),
-            ),
-        
+
             // next button
             Positioned(
               bottom: 40,
-                right: 20,
-                child: TextButton(
-                    onPressed: _next,
-                    child: Text(
-                      _currentIdx == _pages.length - 1 ? "Finish" : "Next",
-                      style: TextStyle(
-                          color: Colors.blue,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600
-                      ),
-                    )
-                )
+              right: 20,
+              child: TextButton(
+                onPressed: _next,
+                child: Text(
+                  _currentIdx == _pages.length - 1 ? "Finish" : "Next",
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
-        
+
             // dots - navigate
             Positioned(
               left: 0,
@@ -171,14 +177,14 @@ class _IntroScreenState extends State<IntroScreen> {
               bottom: 60,
               child: Center(
                 child: SmoothPageIndicator(
-                    controller: _pageController,
-                    count: _pages.length,
-                    effect: WormEffect(
-                      dotHeight: 12,
-                      dotWidth: 12,
-                      dotColor: Colors.blueGrey,
-                      activeDotColor: Colors.blueAccent
-                    ),
+                  controller: _pageController,
+                  count: _pages.length,
+                  effect: WormEffect(
+                    dotHeight: 12,
+                    dotWidth: 12,
+                    dotColor: Colors.blueGrey,
+                    activeDotColor: Colors.blueAccent,
+                  ),
                 ),
               ),
             ),
@@ -186,12 +192,27 @@ class _IntroScreenState extends State<IntroScreen> {
             // logo - only on first screen
             _currentIdx == 0
                 ? Positioned(
-              top: 40,
-              left: 0,
-              right: 0,
-              child: Center(child: Logo(height: 32)),
-            )
+                    top: 40,
+                    left: 0,
+                    right: 0,
+                    child: Center(child: Logo(height: 32)),
+                  )
                 : SizedBox.shrink(),
+
+            // login link - only on last page
+            _currentIdx == _pages.length - 1
+                ? Positioned(
+                    bottom: 100,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: TextButton(
+                        onPressed: _openLogin,
+                        child: const Text("Already have an account? Log in"),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ],
         ),
       ),
@@ -219,17 +240,14 @@ class IntroComponent extends StatelessWidget {
 
       children: [
         // img first, space diye title, then desc
-        Image.asset(imagePath, height: 300,),
-        SizedBox(height: 30,),
+        Image.asset(imagePath, height: 300),
+        SizedBox(height: 30),
 
         Text(
           title,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold
-          ),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        SizedBox(height: 30,), // eta space
+        SizedBox(height: 30), // eta space
 
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
@@ -240,12 +258,9 @@ class IntroComponent extends StatelessWidget {
           ),
         ),
       ],
-
-
     );
   }
 }
-
 
 class Logo extends StatelessWidget {
   final double height;
@@ -257,5 +272,3 @@ class Logo extends StatelessWidget {
     return Image.asset('assets/logo.png', height: height);
   }
 }
-
-
