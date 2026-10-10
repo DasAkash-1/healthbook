@@ -36,9 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (!mounted) return;
       // TODO: navigate to the home screen once it exists.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged in successfully.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Logged in successfully.')));
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -152,11 +152,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _loading
                         ? null
                         : () => Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const RegisterScreen(),
-                              ),
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterScreen(),
                             ),
+                          ),
                     child: const Text('New here? Create an account'),
                   ),
                 ),
