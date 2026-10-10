@@ -25,12 +25,17 @@ abstract class AuthService {
     required String password,
     required UserProfile profile,
   });
+
+  /// Throws [AuthException] if the email or password is wrong.
+  Future<void> login({required String email, required String password});
 }
 
 // TEMPORARY: accounts are kept in memory and cleared when the app restarts.
-// Passwords are not stored. Replace with a Firebase version later.
+// Passwords are kept in memory only so login can be tested. Replace with a
+// Firebase version later.
 class FakeAuthService implements AuthService {
   final Map<String, UserProfile> _accounts = {};
+  final Map<String, String> _passwords = {};
 
   @override
   Future<void> register({
@@ -45,6 +50,18 @@ class FakeAuthService implements AuthService {
       throw AuthException('An account already exists for this email.');
     }
     _accounts[key] = profile;
+    _passwords[key] = password;
+  }
+
+  @override
+  Future<void> login({required String email, required String password}) async {
+    await Future.delayed(const Duration(seconds: 1)); // simulates network delay
+
+    // One message for both cases, so it doesn't reveal which emails exist.
+    final key = email.trim().toLowerCase();
+    if (_passwords[key] != password) {
+      throw AuthException('Incorrect email or password.');
+    }
   }
 }
 
