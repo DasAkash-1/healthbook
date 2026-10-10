@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+
 import 'screens/register_screen.dart';
 import 'screens/login_screen.dart';
 
@@ -34,7 +35,7 @@ class MyApp extends StatelessWidget {
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ), //
-      home: IntroScreen(),
+      home: const IntroScreen(),
     ); //
   }
 }
@@ -52,7 +53,7 @@ class _IntroScreenState extends State<IntroScreen> {
   final PageController _pageController = PageController();
   int _currentIdx = 0;
 
-  final List<Widget> _pages = [
+  final List<Widget> _pages = const [
     IntroComponent(
       title: "Your Health Hub",
       description: "Manage your medical records and appointments all in one secure place.",
@@ -78,11 +79,17 @@ class _IntroScreenState extends State<IntroScreen> {
     ),
   ];
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   // skip er logic
   void _skip() {
     _pageController.animateToPage(
       _pages.length - 1,
-      duration: Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 600),
       curve: Curves.easeInOut,
     );
   }
@@ -91,7 +98,7 @@ class _IntroScreenState extends State<IntroScreen> {
   void _next() {
     if (_currentIdx < _pages.length - 1) {
       _pageController.nextPage(
-        duration: Duration(milliseconds: 600),
+        duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
       );
     } else {
@@ -136,13 +143,13 @@ class _IntroScreenState extends State<IntroScreen> {
 
             // skip butn, last page e skip show korar dorkar nai
             _currentIdx == _pages.length - 1
-                ? SizedBox.shrink()
+                ? const SizedBox.shrink()
                 : Positioned(
                     bottom: 40,
                     left: 20,
                     child: TextButton(
                       onPressed: _skip,
-                      child: Text(
+                      child: const Text(
                         "Skip",
                         style: TextStyle(
                           color: Colors.red,
@@ -161,7 +168,7 @@ class _IntroScreenState extends State<IntroScreen> {
                 onPressed: _next,
                 child: Text(
                   _currentIdx == _pages.length - 1 ? "Finish" : "Next",
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.blue,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -179,7 +186,7 @@ class _IntroScreenState extends State<IntroScreen> {
                 child: SmoothPageIndicator(
                   controller: _pageController,
                   count: _pages.length,
-                  effect: WormEffect(
+                  effect: const WormEffect(
                     dotHeight: 12,
                     dotWidth: 12,
                     dotColor: Colors.blueGrey,
@@ -191,13 +198,13 @@ class _IntroScreenState extends State<IntroScreen> {
 
             // logo - only on first screen
             _currentIdx == 0
-                ? Positioned(
+                ? const Positioned(
                     top: 40,
                     left: 0,
                     right: 0,
                     child: Center(child: Logo(height: 32)),
                   )
-                : SizedBox.shrink(),
+                : const SizedBox.shrink(),
 
             // login link - only on last page
             _currentIdx == _pages.length - 1
@@ -240,17 +247,21 @@ class IntroComponent extends StatelessWidget {
 
       children: [
         // img first, space diye title, then desc
-        Image.asset(imagePath, height: 300),
-        SizedBox(height: 30),
+        Image.asset(
+          imagePath,
+          height: 300,
+          cacheHeight: (300 * MediaQuery.devicePixelRatioOf(context)).round(),
+        ),
+        const SizedBox(height: 30),
 
         Text(
           title,
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        SizedBox(height: 30), // eta space
+        const SizedBox(height: 30), // eta space
 
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
             description,
             textAlign: TextAlign.center,
