@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -44,10 +45,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: Curves.easeOutBack,
-      ),
+      CurvedAnimation(parent: _entranceController, curve: Curves.easeOutBack),
     );
 
     _pulseController = AnimationController(
@@ -56,10 +54,7 @@ class _SplashScreenState extends State<SplashScreen>
     )..repeat(reverse: true);
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     _entranceController.forward();
@@ -69,13 +64,11 @@ class _SplashScreenState extends State<SplashScreen>
 
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => widget.nextScreen,
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              widget.nextScreen,
           transitionDuration: const Duration(milliseconds: 600),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
+            return FadeTransition(opacity: animation, child: child);
           },
         ),
       );
@@ -97,11 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: Stack(
         children: [
           // Background grid
-          const Positioned.fill(
-            child: CustomPaint(
-              painter: _GridPainter(),
-            ),
-          ),
+          const Positioned.fill(child: CustomPaint(painter: _GridPainter())),
 
           // Main content
           Center(
@@ -226,14 +215,15 @@ class _HeartLogoPainter extends CustomPainter {
     final circlePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
-      ..shader = LinearGradient(
-        colors: [
-          const Color(0xFFAFC8F5).withValues(alpha: 0.8),
-          const Color(0xFF416EB5),
-        ],
-      ).createShader(
-        Rect.fromCircle(center: center, radius: baseRadius * pulseValue),
-      );
+      ..shader =
+          LinearGradient(
+            colors: [
+              const Color(0xFFAFC8F5).withValues(alpha: 0.8),
+              const Color(0xFF416EB5),
+            ],
+          ).createShader(
+            Rect.fromCircle(center: center, radius: baseRadius * pulseValue),
+          );
 
     canvas.drawCircle(center, baseRadius * pulseValue, circlePaint);
 
@@ -247,32 +237,46 @@ class _HeartLogoPainter extends CustomPainter {
 
     // Centered Heart shape
     final heartPath = Path();
-    final heartTop = center.dy - 28;
-    
+    // Heart outline spans about 10px..84px below heartTop, so its visual
+    // centre is ~19px lower than the old -28 offset implied. Shift up to centre it.
+    final heartTop = center.dy - 47;
+
     heartPath.moveTo(center.dx, heartTop + 20);
     // Left curve
     heartPath.cubicTo(
-      center.dx - 24, heartTop, 
-      center.dx - 40, heartTop + 16, 
-      center.dx - 40, heartTop + 36
+      center.dx - 24,
+      heartTop,
+      center.dx - 40,
+      heartTop + 16,
+      center.dx - 40,
+      heartTop + 36,
     );
     // Bottom point
     heartPath.cubicTo(
-      center.dx - 40, heartTop + 64, 
-      center.dx, heartTop + 84, 
-      center.dx, heartTop + 84
+      center.dx - 40,
+      heartTop + 64,
+      center.dx,
+      heartTop + 84,
+      center.dx,
+      heartTop + 84,
     );
     // Right curve
     heartPath.cubicTo(
-      center.dx, heartTop + 84, 
-      center.dx + 40, heartTop + 64, 
-      center.dx + 40, heartTop + 36
+      center.dx,
+      heartTop + 84,
+      center.dx + 40,
+      heartTop + 64,
+      center.dx + 40,
+      heartTop + 36,
     );
     // Back to top
     heartPath.cubicTo(
-      center.dx + 40, heartTop + 16, 
-      center.dx + 24, heartTop, 
-      center.dx, heartTop + 20
+      center.dx + 40,
+      heartTop + 16,
+      center.dx + 24,
+      heartTop,
+      center.dx,
+      heartTop + 20,
     );
 
     canvas.drawPath(heartPath, heartPaint);
@@ -286,13 +290,13 @@ class _HeartLogoPainter extends CustomPainter {
       ..color = const Color(0xFF102A66);
 
     final ecgPath = Path();
-    final ecgY = center.dy + 8; // Slightly below absolute center to sit in heart
-    
+    final ecgY = center.dy - 11; // Centred inside the heart (moved with it)
+
     ecgPath.moveTo(center.dx - 55, ecgY);
     ecgPath.lineTo(center.dx - 25, ecgY);
     ecgPath.lineTo(center.dx - 18, ecgY + 22); // down
-    ecgPath.lineTo(center.dx - 8, ecgY - 12);  // up
-    ecgPath.lineTo(center.dx + 2, ecgY + 5);   // small bounce
+    ecgPath.lineTo(center.dx - 8, ecgY - 12); // up
+    ecgPath.lineTo(center.dx + 2, ecgY + 5); // small bounce
     ecgPath.lineTo(center.dx + 35, ecgY);
     ecgPath.lineTo(center.dx + 50, ecgY);
 
