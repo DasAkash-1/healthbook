@@ -1,5 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/app_models.dart';
 import 'clinic_store.dart';
+
+// Demo accounts for testing. Created only in debug builds.
+const String kDemoPassword = 'Demo1234';
+const String kDemoPatientEmail = 'demo.patient@healthbook.test';
+const String kDemoDoctorEmail = 'demo.doctor@healthbook.test';
 
 // Details collected on the second registration step.
 class UserProfile {
@@ -7,12 +14,14 @@ class UserProfile {
   final String phone;
   final DateTime dateOfBirth;
   final String? specialty; // doctors only
+  final String? licenseNumber; // doctors only
 
   const UserProfile({
     required this.name,
     required this.phone,
     required this.dateOfBirth,
     this.specialty,
+    this.licenseNumber,
   });
 }
 
@@ -56,6 +65,45 @@ class FakeAuthService implements AuthService {
   final Map<String, _Account> _accounts = {};
   AppUser? _current;
 
+  FakeAuthService() {
+    if (kDebugMode) _seedDemoAccounts();
+  }
+
+  // Demo doctor is verified and has an approved appointment with the demo patient
+  // for tomorrow at 9:00, so prescription access can be tested straight away.
+  void _seedDemoAccounts() {
+    const patientId = kDemoPatientEmail;
+    const doctorId = kDemoDoctorEmail;
+
+    _accounts[patientId] = _Account(
+      password: kDemoPassword,
+      user: const AppUser(id: patientId, name: 'Demo Patient', role: UserRole.patient),
+    );
+    _accounts[doctorId] = _Account(
+      password: kDemoPassword,
+      user: const AppUser(id: doctorId, name: 'Demo Doctor', role: UserRole.doctor),
+    );
+
+    clinicStore.addDoctor(const Doctor(
+      id: doctorId,
+      name: 'Demo Doctor',
+      specialty: 'General Practice',
+      licenseNumber: 'DEMO-0001',
+    ));
+    clinicStore.verifyDoctor(doctorId);
+
+    final now = DateTime.now();
+    final tomorrowNine = DateTime(now.year, now.month, now.day + 1, 9);
+    clinicStore.setHourOpen(doctorId, tomorrowNine, true);
+    final appt = clinicStore.requestAppointment(
+      patientId: patientId,
+      doctorId: doctorId,
+      start: tomorrowNine,
+      patientName: 'Demo Patient',
+    );
+    clinicStore.approveAppointment(appt.id, doctorId);
+  }
+
   @override
   AppUser? get currentUser => _current;
 
@@ -76,13 +124,22 @@ class FakeAuthService implements AuthService {
     if (role == UserRole.doctor && profile.specialty == null) {
       throw AuthException('Please choose your specialty.');
     }
+    if (role == UserRole.doctor &&
+        (profile.licenseNumber == null || profile.licenseNumber!.trim().isEmpty)) {
+      throw AuthException('Please enter your medical license number.');
+    }
 
     final user = AppUser(id: key, name: profile.name, role: role);
     _accounts[key] = _Account(password: password, user: user);
 
     if (role == UserRole.doctor) {
       clinicStore.addDoctor(
-        Doctor(id: key, name: profile.name, specialty: profile.specialty!),
+        Doctor(
+          id: key,
+          name: profile.name,
+          specialty: profile.specialty!,
+          licenseNumber: profile.licenseNumber!.trim(),
+        ),
       );
     }
   }

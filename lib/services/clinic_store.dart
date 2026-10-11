@@ -21,6 +21,7 @@ class ClinicStore {
   final List<Doctor> _doctors = [];
   // doctorId -> hours the doctor has opened (exact hour marks)
   final Map<String, Set<DateTime>> _openHours = {};
+  final Set<String> _verified = {};
   final List<Appointment> _appointments = [];
   int _nextId = 1;
 
@@ -36,6 +37,7 @@ class ClinicStore {
       const Doctor(id: 'seed-3', name: 'Dr. Nusrat Jahan', specialty: 'Dermatology'),
     ];
     _doctors.addAll(seeds);
+    _verified.addAll(seeds.map((d) => d.id));
 
     // Open 9:00 to 16:00 tomorrow for each seeded doctor.
     final tomorrow = _dayStart(DateTime.now()).add(const Duration(days: 1));
@@ -65,6 +67,13 @@ class ClinicStore {
 
   void addDoctor(Doctor doctor) {
     _doctors.add(doctor);
+  }
+
+  bool isVerified(String doctorId) => _verified.contains(doctorId);
+
+  // Marks a doctor as verified. Real license checks come with the backend.
+  void verifyDoctor(String doctorId) {
+    _verified.add(doctorId);
   }
 
   List<Doctor> searchDoctors({

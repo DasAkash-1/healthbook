@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
@@ -55,6 +56,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _demoLogin(String email, String password) {
+    _emailCtrl.text = email;
+    _passwordCtrl.text = password;
+    _login();
   }
 
   Widget _field({
@@ -142,6 +149,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       )
                     : const Text('Log in', style: TextStyle(fontSize: 16)),
               ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Demo accounts (debug builds only)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _loading
+                            ? null
+                            : () => _demoLogin(kDemoPatientEmail, kDemoPassword),
+                        child: const Text('Demo patient'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _loading
+                            ? null
+                            : () => _demoLogin(kDemoDoctorEmail, kDemoPassword),
+                        child: const Text('Demo doctor'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               Center(
                 child: TextButton(
