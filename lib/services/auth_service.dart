@@ -1,5 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/app_models.dart';
 import 'clinic_store.dart';
+
+// Demo accounts for testing. Created only in debug builds.
+const String kDemoPassword = 'Demo1234';
+const String kDemoPatientEmail = 'demo.patient@healthbook.test';
+const String kDemoDoctorEmail = 'demo.doctor@healthbook.test';
 
 // Details collected on the second registration step.
 class UserProfile {
@@ -57,6 +64,45 @@ class _Account {
 class FakeAuthService implements AuthService {
   final Map<String, _Account> _accounts = {};
   AppUser? _current;
+
+  FakeAuthService() {
+    if (kDebugMode) _seedDemoAccounts();
+  }
+
+  // Demo doctor is verified and has an approved appointment with the demo patient
+  // for tomorrow at 9:00, so prescription access can be tested straight away.
+  void _seedDemoAccounts() {
+    const patientId = kDemoPatientEmail;
+    const doctorId = kDemoDoctorEmail;
+
+    _accounts[patientId] = _Account(
+      password: kDemoPassword,
+      user: const AppUser(id: patientId, name: 'Demo Patient', role: UserRole.patient),
+    );
+    _accounts[doctorId] = _Account(
+      password: kDemoPassword,
+      user: const AppUser(id: doctorId, name: 'Demo Doctor', role: UserRole.doctor),
+    );
+
+    clinicStore.addDoctor(const Doctor(
+      id: doctorId,
+      name: 'Demo Doctor',
+      specialty: 'General Practice',
+      licenseNumber: 'DEMO-0001',
+    ));
+    clinicStore.verifyDoctor(doctorId);
+
+    final now = DateTime.now();
+    final tomorrowNine = DateTime(now.year, now.month, now.day + 1, 9);
+    clinicStore.setHourOpen(doctorId, tomorrowNine, true);
+    final appt = clinicStore.requestAppointment(
+      patientId: patientId,
+      doctorId: doctorId,
+      start: tomorrowNine,
+      patientName: 'Demo Patient',
+    );
+    clinicStore.approveAppointment(appt.id, doctorId);
+  }
 
   @override
   AppUser? get currentUser => _current;
