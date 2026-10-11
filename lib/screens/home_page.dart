@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import 'doctor_directory_screen.dart';
 import 'feature_screen.dart';
 import 'login_screen.dart';
