@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'feature_screen.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -16,39 +18,120 @@ class _HomePageState extends State<HomePage> {
       'title': 'Doctors',
       'subtitle': 'Add & view details',
       'icon': CupertinoIcons.person_2_fill,
+      'empty': 'No doctors added yet.',
     },
     {
       'title': 'Prescriptions',
       'subtitle': 'Upload & manage',
       'icon': CupertinoIcons.doc_text_fill,
+      'empty': 'No prescriptions added yet.',
     },
     {
       'title': 'Test Results',
       'subtitle': 'Add & view history',
       'icon': CupertinoIcons.search,
+      'empty': 'No test results added yet.',
     },
     {
       'title': 'Appointments',
       'subtitle': 'Schedule & track visits',
       'icon': CupertinoIcons.calendar,
-    },
-    {
-      'title': 'Patients Portal',
-      'subtitle': 'Manage patient profile',
-      'icon': CupertinoIcons.person_crop_rectangle,
-    },
-    {
-      'title': 'Admin Panel',
-      'subtitle': 'System dashboard & users',
-      'icon': CupertinoIcons.square_stack_3d_up,
+      'empty': 'No appointments scheduled yet.',
     },
   ];
+
+  void _openFeature(Map<String, dynamic> item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FeatureScreen(
+          title: item['title'] as String,
+          icon: item['icon'] as IconData,
+          emptyMessage: item['empty'] as String,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(int index) {
+    switch (index) {
+      case 1:
+        return _buildRecordsTab();
+      case 2:
+        return const FeatureScreen(
+          title: 'Appointments',
+          icon: CupertinoIcons.calendar,
+          emptyMessage: 'No appointments scheduled yet.',
+        );
+      default:
+        return const Center(
+          child: Text(
+            'Profile coming soon',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        );
+    }
+  }
+
+  Widget _buildRecordsTab() {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'Records',
+            style: TextStyle(
+              fontFamily: 'Georgia',
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0D1B2A),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _recordTile('Prescriptions', CupertinoIcons.doc_text_fill,
+              'No prescriptions added yet.'),
+          _recordTile(
+              'Test Results', CupertinoIcons.search, 'No test results added yet.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _recordTile(String title, IconData icon, String emptyMessage) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: ListTile(
+        tileColor: const Color(0xFFF4F7FB),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        leading: Icon(icon, color: const Color(0xFF102A66)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0D1B2A),
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FeatureScreen(
+              title: title,
+              icon: icon,
+              emptyMessage: emptyMessage,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
+      body: _currentIndex == 0
+          ? SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
@@ -165,7 +248,9 @@ class _HomePageState extends State<HomePage> {
                 ),
                 itemBuilder: (context, index) {
                   final item = _dashboardItems[index];
-                  return Container(
+                  return GestureDetector(
+                    onTap: () => _openFeature(item),
+                    child: Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFF4F7FB),
                       borderRadius: BorderRadius.circular(16),
@@ -208,66 +293,16 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
+                    ),
                   );
                 },
-              ),
-              const SizedBox(height: 20),
-
-              // Upcoming Appointment Banner
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8EEFF),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFD0DCFF)),
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Upcoming Appointment:',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF102A66),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Dr. Sarah Ahmed • Oct 15 at 10:00 AM • Cardiology',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF102A66),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.clock,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 10),
             ],
           ),
         ),
-      ),
+      )
+          : _buildTab(_currentIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
