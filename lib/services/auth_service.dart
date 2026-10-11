@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/app_models.dart';
+import '../models/medical_history.dart';
 import 'clinic_store.dart';
+import 'medical_history_store.dart';
 
 // Demo accounts for testing. Created only in debug builds.
 const String kDemoPassword = 'Demo1234';
@@ -15,6 +17,7 @@ class UserProfile {
   final DateTime dateOfBirth;
   final String? specialty; // doctors only
   final String? licenseNumber; // doctors only
+  final MedicalHistory? medicalHistory; // patients only
 
   const UserProfile({
     required this.name,
@@ -22,6 +25,7 @@ class UserProfile {
     required this.dateOfBirth,
     this.specialty,
     this.licenseNumber,
+    this.medicalHistory,
   });
 }
 
@@ -102,6 +106,18 @@ class FakeAuthService implements AuthService {
       patientName: 'Demo Patient',
     );
     clinicStore.approveAppointment(appt.id, doctorId);
+
+    medicalHistoryStore.save(
+      patientId: patientId,
+      editorId: patientId,
+      history: MedicalHistory(
+        allergies: 'None known',
+        conditions: 'None',
+        surgeries: 'None',
+        currentMedicines: 'None',
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   @override
@@ -129,8 +145,23 @@ class FakeAuthService implements AuthService {
       throw AuthException('Please enter your medical license number.');
     }
 
+    if (role == UserRole.patient) {
+      final history = profile.medicalHistory;
+      if (history == null || history.allergies.trim().isEmpty) {
+        throw AuthException('Please enter your allergies, or write "None".');
+      }
+    }
+
     final user = AppUser(id: key, name: profile.name, role: role);
     _accounts[key] = _Account(password: password, user: user);
+
+    if (role == UserRole.patient) {
+      medicalHistoryStore.save(
+        patientId: key,
+        editorId: key,
+        history: profile.medicalHistory!,
+      );
+    }
 
     if (role == UserRole.doctor) {
       clinicStore.addDoctor(

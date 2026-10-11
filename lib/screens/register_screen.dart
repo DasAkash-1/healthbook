@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
+import '../widgets/medical_history_form.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -25,14 +26,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _dobCtrl = TextEditingController();
+  final _licenseCtrl = TextEditingController();
   DateTime? _dob;
-
-  int _step = 0; // 0 = account, 1 = personal details
-  bool _obscure = true;
-  bool _loading = false;
   UserRole _role = UserRole.patient;
   String? _specialty;
-  final _licenseCtrl = TextEditingController();
+
+  // Step 3 (patients only) fields
+  final _medical = MedicalHistoryControllers();
+
+  int _step = 0; // 0 = account, 1 = personal details, 2 = medical history (patients)
+  bool _obscure = true;
+  bool _loading = false;
+
+  static const List<String> _specialties = [
+    'General Practice',
+    'Cardiology',
+    'Dermatology',
+    'Neurology',
+    'Orthopaedics',
+    'Paediatrics',
+    'Gynaecology',
+  ];
+
+  bool get _isPatient => _role == UserRole.patient;
+  int get _totalSteps => _isPatient ? 3 : 2;
 
   @override
   void dispose() {
@@ -43,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneCtrl.dispose();
     _dobCtrl.dispose();
     _licenseCtrl.dispose();
+    _medical.dispose();
     super.dispose();
   }
 
@@ -57,31 +75,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (picked != null) {
       setState(() {
         _dob = picked;
-        _dobCtrl.text =
-            '${picked.day.toString().padLeft(2, '0')}/'
+        _dobCtrl.text = '${picked.day.toString().padLeft(2, '0')}/'
             '${picked.month.toString().padLeft(2, '0')}/'
             '${picked.year}';
       });
     }
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _next() {
-    if (_accountFormKey.currentState!.validate()) {
-      setState(() => _step = 1);
+    if (_step == 0) {
+      if (_accountFormKey.currentState!.validate()) setState(() => _step = 1);
+      return;
+    }
+    if (!_profileFormKey.currentState!.validate()) return;
+    if (_role == UserRole.doctor && _specialty == null) {
+      _showMessage('Please choose your specialty.');
+      return;
+    }
+    if (_isPatient) {
+      setState(() => _step = 2);
+    } else {
+      _submit();
     }
   }
 
-  void _back() => setState(() => _step = 0);
+  void _back() => setState(() => _step = _step > 0 ? _step - 1 : 0);
 
-  Future<void> _submit() async {
-    if (!_profileFormKey.currentState!.validate()) return;
-    if (_role == UserRole.doctor && _specialty == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please choose your specialty.')),
-      );
+  void _onMedicalSubmit() {
+    if (_medical.allergies.text.trim().isEmpty) {
+      _showMessage('Please enter your allergies, or write "None".');
       return;
     }
+    _submit();
+  }
 
+  Future<void> _submit() async {
     setState(() => _loading = true);
     try {
       await authService.register(
@@ -94,22 +126,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           dateOfBirth: _dob!,
           specialty: _role == UserRole.doctor ? _specialty : null,
           licenseNumber: _role == UserRole.doctor ? _licenseCtrl.text.trim() : null,
+          medicalHistory: _isPatient ? _medical.toHistory() : null,
         ),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully.')),
-      );
+      _showMessage('Account created successfully.');
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
-      // If the email is already taken, send the user back to step 1.
-      setState(() => _step = 0);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      // A duplicate email means the user needs to change step 1.
+      if (e.message.contains('already exists')) setState(() => _step = 0);
+      _showMessage(e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -162,16 +192,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  static const List<String> _specialties = [
-    'General Practice',
-    'Cardiology',
-    'Dermatology',
-    'Neurology',
-    'Orthopaedics',
-    'Paediatrics',
-    'Gynaecology',
-  ];
-
   Widget _buildSpecialtyPicker() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -207,14 +227,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Step ${_step + 1} of 2',
+          'Step ${_step + 1} of $_totalSteps',
           style: TextStyle(color: Colors.grey[700], fontSize: 14),
         ),
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
-            value: (_step + 1) / 2,
+            value: (_step + 1) / _totalSteps,
             minHeight: 6,
             color: Colors.blueAccent,
             backgroundColor: Colors.blueGrey.shade100,
@@ -320,23 +340,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _licenseCtrl,
               label: 'Medical license number',
               icon: Icons.badge_outlined,
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'License number is required'
-                  : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'License number is required' : null,
             ),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: _loading ? null : _submit,
+            onPressed: _loading ? null : _next,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: _loading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Create account', style: TextStyle(fontSize: 16)),
+            child: Text(
+              _isPatient ? 'Next' : 'Create account',
+              style: const TextStyle(fontSize: 16),
+            ),
           ),
           const SizedBox(height: 12),
           TextButton(
@@ -348,17 +364,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Widget _buildMedicalStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MedicalHistoryFields(controllers: _medical),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: _loading ? null : _onMedicalSubmit,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: _loading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create account', style: TextStyle(fontSize: 16)),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: _loading ? null : _back,
+          child: const Text('Back'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep() {
+    switch (_step) {
+      case 0:
+        return _buildAccountStep();
+      case 1:
+        return _buildProfileStep();
+      default:
+        return _buildMedicalStep();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isFirstStep = _step == 0;
+    final title = switch (_step) {
+      0 => 'Create Account',
+      1 => 'Your Details',
+      _ => 'Medical History',
+    };
+    final subtitle = switch (_step) {
+      0 => 'Start with your email and a password.',
+      1 => 'Tell us a little about yourself.',
+      _ => 'Help your doctor understand your health. You can update this later.',
+    };
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(isFirstStep ? 'Create Account' : 'Your Details'),
-        leading: isFirstStep
+        title: Text(title),
+        leading: _step == 0
             ? null
             : IconButton(icon: const Icon(Icons.arrow_back), onPressed: _back),
       ),
@@ -371,15 +435,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _buildProgress(),
               const SizedBox(height: 24),
               Text(
-                isFirstStep
-                    ? 'Start with your email and a password.'
-                    : 'Tell us a little about yourself.',
+                subtitle,
                 style: TextStyle(fontSize: 16, color: Colors.grey[700]),
               ),
               const SizedBox(height: 24),
-              isFirstStep ? _buildAccountStep() : _buildProfileStep(),
+              _buildStep(),
               const SizedBox(height: 24),
-              if (isFirstStep)
+              if (_step == 0)
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.pushReplacement(

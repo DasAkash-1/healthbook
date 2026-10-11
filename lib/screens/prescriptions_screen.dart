@@ -4,6 +4,7 @@ import '../models/prescription_models.dart';
 import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
 import 'doctor_access_screen.dart';
+import 'medical_history_screen.dart';
 import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
 
@@ -151,6 +152,17 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         elevation: 0,
         title: const Text('Prescriptions'),
         actions: [
+          if (canView)
+            IconButton(
+              icon: const Icon(Icons.health_and_safety_outlined),
+              tooltip: 'Medical history',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MedicalHistoryScreen(patientId: widget.patientId),
+                ),
+              ),
+            ),
           if (canView)
             IconButton(
               icon: const Icon(Icons.history),
