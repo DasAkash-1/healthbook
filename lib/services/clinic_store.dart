@@ -99,6 +99,10 @@ class ClinicStore {
     );
   }
 
+  bool isHourBooked(String doctorId, DateTime hour) {
+    return _isBooked(doctorId, hour);
+  }
+
   bool isHourOpen(String doctorId, DateTime hour) {
     return _openHours[doctorId]?.contains(hour) ?? false;
   }
@@ -167,6 +171,7 @@ class ClinicStore {
     required String doctorId,
     required DateTime start,
     String note = '',
+    String patientName = '',
   }) {
     if (!_inBookingWindow(start)) {
       throw BookingException('This time is outside the booking window.');
@@ -186,6 +191,7 @@ class ClinicStore {
     final appointment = Appointment(
       id: 'appt-${_nextId++}',
       patientId: patientId,
+      patientName: patientName,
       doctorId: doctorId,
       start: start,
       note: note,

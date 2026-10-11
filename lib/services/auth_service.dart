@@ -38,6 +38,8 @@ abstract class AuthService {
     required String email,
     required String password,
   });
+
+  void logout();
 }
 
 class _Account {
@@ -100,6 +102,11 @@ class FakeAuthService implements AuthService {
 
     _current = account.user;
     return account.user;
+  }
+
+  @override
+  void logout() {
+    _current = null;
   }
 }
 

@@ -24,6 +24,7 @@ class Doctor {
 class Appointment {
   final String id;
   final String patientId;
+  final String patientName;
   final String doctorId;
   final DateTime start;
   final String note;
@@ -32,6 +33,7 @@ class Appointment {
   Appointment({
     required this.id,
     required this.patientId,
+    this.patientName = '',
     required this.doctorId,
     required this.start,
     required this.note,
