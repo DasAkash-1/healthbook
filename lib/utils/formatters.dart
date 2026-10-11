@@ -18,3 +18,7 @@ String formatSlot(DateTime start) {
   return '${two(start.hour)}:${two(start.minute)} – '
       '${two(end.hour)}:${two(end.minute)}';
 }
+
+// e.g. "Tue 13 Oct 10:30"
+String formatDateTime(DateTime d) =>
+    '${formatDay(d)} ${two(d.hour)}:${two(d.minute)}';
