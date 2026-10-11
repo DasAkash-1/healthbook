@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'doctor_directory_screen.dart';
 import 'feature_screen.dart';
+import 'my_appointments_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,16 +43,17 @@ class _HomePageState extends State<HomePage> {
   ];
 
   void _openFeature(Map<String, dynamic> item) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FeatureScreen(
-          title: item['title'] as String,
+    final title = item['title'] as String;
+    final Widget screen = switch (title) {
+      'Doctors' => const DoctorDirectoryScreen(),
+      'Appointments' => const MyAppointmentsScreen(),
+      _ => FeatureScreen(
+          title: title,
           icon: item['icon'] as IconData,
           emptyMessage: item['empty'] as String,
         ),
-      ),
-    );
+    };
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   Widget _buildTab(int index) {
@@ -58,11 +61,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return _buildRecordsTab();
       case 2:
-        return const FeatureScreen(
-          title: 'Appointments',
-          icon: CupertinoIcons.calendar,
-          emptyMessage: 'No appointments scheduled yet.',
-        );
+        return const MyAppointmentsScreen();
       default:
         return const Center(
           child: Text(

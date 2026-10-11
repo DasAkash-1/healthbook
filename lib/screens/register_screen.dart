@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
 import 'login_screen.dart';
@@ -29,6 +30,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   int _step = 0; // 0 = account, 1 = personal details
   bool _obscure = true;
   bool _loading = false;
+  UserRole _role = UserRole.patient;
+  String? _specialty;
 
   @override
   void dispose() {
@@ -70,16 +73,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_profileFormKey.currentState!.validate()) return;
+    if (_role == UserRole.doctor && _specialty == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please choose your specialty.')),
+      );
+      return;
+    }
 
     setState(() => _loading = true);
     try {
       await authService.register(
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
+        role: _role,
         profile: UserProfile(
           name: _nameCtrl.text.trim(),
           phone: _phoneCtrl.text.trim(),
           dateOfBirth: _dob!,
+          specialty: _role == UserRole.doctor ? _specialty : null,
         ),
       );
       if (!mounted) return;
@@ -148,6 +159,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  static const List<String> _specialties = [
+    'General Practice',
+    'Cardiology',
+    'Dermatology',
+    'Neurology',
+    'Orthopaedics',
+    'Paediatrics',
+    'Gynaecology',
+  ];
+
+  Widget _buildSpecialtyPicker() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Specialty',
+          prefixIcon: const Icon(Icons.medical_services_outlined),
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _specialty,
+            isExpanded: true,
+            hint: const Text('Choose your specialty'),
+            items: [
+              for (final s in _specialties)
+                DropdownMenuItem<String>(value: s, child: Text(s)),
+            ],
+            onChanged: (v) => setState(() => _specialty = v),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildProgress() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,6 +227,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SegmentedButton<UserRole>(
+            segments: const [
+              ButtonSegment(
+                value: UserRole.patient,
+                label: Text('Patient'),
+                icon: Icon(Icons.person_outline),
+              ),
+              ButtonSegment(
+                value: UserRole.doctor,
+                label: Text('Doctor'),
+                icon: Icon(Icons.medical_services_outlined),
+              ),
+            ],
+            selected: {_role},
+            onSelectionChanged: (s) => setState(() => _role = s.first),
+          ),
+          const SizedBox(height: 16),
           _field(
             controller: _emailCtrl,
             label: 'Email',
@@ -243,6 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             suffix: const Icon(Icons.calendar_today),
             validator: (_) => Validators.dateOfBirth(_dob),
           ),
+          if (_role == UserRole.doctor) _buildSpecialtyPicker(),
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: _loading ? null : _submit,
