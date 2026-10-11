@@ -247,7 +247,9 @@ class _HeartLogoPainter extends CustomPainter {
 
     // Centered Heart shape
     final heartPath = Path();
-    final heartTop = center.dy - 28;
+    // Heart outline spans about 10px..84px below heartTop, so its visual
+    // centre is ~19px lower than the old -28 offset implied. Shift up to centre it.
+    final heartTop = center.dy - 47;
     
     heartPath.moveTo(center.dx, heartTop + 20);
     // Left curve
@@ -286,7 +288,7 @@ class _HeartLogoPainter extends CustomPainter {
       ..color = const Color(0xFF102A66);
 
     final ecgPath = Path();
-    final ecgY = center.dy + 8; // Slightly below absolute center to sit in heart
+    final ecgY = center.dy - 11; // Centred inside the heart (moved with it)
     
     ecgPath.moveTo(center.dx - 55, ecgY);
     ecgPath.lineTo(center.dx - 25, ecgY);
