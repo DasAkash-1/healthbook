@@ -7,6 +7,7 @@ import 'bmi_screen.dart';
 import 'feature_screen.dart';
 import 'login_screen.dart';
 import 'my_appointments_screen.dart';
+import 'prescriptions_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -50,6 +51,7 @@ class _HomePageState extends State<HomePage> {
     final Widget screen = switch (title) {
       'Doctors' => const DoctorDirectoryScreen(),
       'Appointments' => const MyAppointmentsScreen(),
+      'Prescriptions' => PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
       _ => FeatureScreen(
           title: title,
           icon: item['icon'] as IconData,
@@ -175,11 +177,13 @@ class _HomePageState extends State<HomePage> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => FeatureScreen(
-              title: title,
-              icon: icon,
-              emptyMessage: emptyMessage,
-            ),
+            builder: (_) => title == 'Prescriptions'
+                ? PrescriptionsScreen(patientId: authService.currentUser?.id ?? '')
+                : FeatureScreen(
+                    title: title,
+                    icon: icon,
+                    emptyMessage: emptyMessage,
+                  ),
           ),
         ),
       ),

@@ -7,12 +7,14 @@ class UserProfile {
   final String phone;
   final DateTime dateOfBirth;
   final String? specialty; // doctors only
+  final String? licenseNumber; // doctors only
 
   const UserProfile({
     required this.name,
     required this.phone,
     required this.dateOfBirth,
     this.specialty,
+    this.licenseNumber,
   });
 }
 
@@ -76,13 +78,22 @@ class FakeAuthService implements AuthService {
     if (role == UserRole.doctor && profile.specialty == null) {
       throw AuthException('Please choose your specialty.');
     }
+    if (role == UserRole.doctor &&
+        (profile.licenseNumber == null || profile.licenseNumber!.trim().isEmpty)) {
+      throw AuthException('Please enter your medical license number.');
+    }
 
     final user = AppUser(id: key, name: profile.name, role: role);
     _accounts[key] = _Account(password: password, user: user);
 
     if (role == UserRole.doctor) {
       clinicStore.addDoctor(
-        Doctor(id: key, name: profile.name, specialty: profile.specialty!),
+        Doctor(
+          id: key,
+          name: profile.name,
+          specialty: profile.specialty!,
+          licenseNumber: profile.licenseNumber!.trim(),
+        ),
       );
     }
   }

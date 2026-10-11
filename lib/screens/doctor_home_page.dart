@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../services/clinic_store.dart';
+import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
 import 'login_screen.dart';
+import 'prescriptions_screen.dart';
 
 // Hours a doctor can open, as start times (08:00 to 16:00).
 const int _firstHour = 8;
@@ -27,10 +30,11 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
     final Widget body = switch (_currentIndex) {
       0 => _RequestsTab(doctorId: doctorId),
       1 => _ScheduleTab(doctorId: doctorId),
+      2 => _PatientsTab(doctorId: doctorId),
       _ => _ProfileTab(doctorId: doctorId),
     };
 
-    const titles = ['Requests', 'Schedule', 'Profile'];
+    const titles = ['Requests', 'Schedule', 'Patients', 'Profile'];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -54,6 +58,10 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month_outlined),
             label: 'Schedule',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_outline),
+            label: 'Patients',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -308,17 +316,95 @@ class _ScheduleTabState extends State<_ScheduleTab> {
   }
 }
 
+// ---------- Patients ----------
+
+class _PatientsTab extends StatefulWidget {
+  final String doctorId;
+
+  const _PatientsTab({required this.doctorId});
+
+  @override
+  State<_PatientsTab> createState() => _PatientsTabState();
+}
+
+class _PatientsTabState extends State<_PatientsTab> {
+  String _nameFor(String patientId) {
+    for (final a in clinicStore.appointmentsForDoctor(widget.doctorId)) {
+      if (a.patientId == patientId && a.patientName.isNotEmpty) {
+        return a.patientName;
+      }
+    }
+    return patientId;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final patientIds = prescriptionStore.patientsGrantingAccess(widget.doctorId);
+
+    if (patientIds.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'No patients have shared their prescriptions with you yet.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(20),
+      itemCount: patientIds.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, i) {
+        final id = patientIds[i];
+        return ListTile(
+          tileColor: const Color(0xFFF4F7FB),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          leading: const CircleAvatar(
+            backgroundColor: Color(0xFFDCE6FF),
+            child: Icon(Icons.person, color: Color(0xFF102A66)),
+          ),
+          title: Text(
+            _nameFor(id),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: const Text('Prescription shared with you'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PrescriptionsScreen(patientId: id, isDoctor: true),
+              ),
+            );
+            if (mounted) setState(() {});
+          },
+        );
+      },
+    );
+  }
+}
+
 // ---------- Profile ----------
 
-class _ProfileTab extends StatelessWidget {
+class _ProfileTab extends StatefulWidget {
   final String doctorId;
 
   const _ProfileTab({required this.doctorId});
 
   @override
+  State<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<_ProfileTab> {
+  @override
   Widget build(BuildContext context) {
     final user = authService.currentUser;
-    final doctor = clinicStore.doctorById(doctorId);
+    final doctor = clinicStore.doctorById(widget.doctorId);
+    final verified = clinicStore.isVerified(widget.doctorId);
+    final statusColor = verified ? Colors.green : Colors.orange;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -343,6 +429,35 @@ class _ProfileTab extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(user?.id ?? '', style: TextStyle(color: Colors.grey[700])),
+            if (doctor != null && doctor.licenseNumber.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'License: ${doctor.licenseNumber}',
+                style: TextStyle(color: Colors.grey[700]),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                verified ? 'Verified doctor' : 'Verification pending',
+                style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
+              ),
+            ),
+            if (kDebugMode && !verified) ...[
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () {
+                  clinicStore.verifyDoctor(widget.doctorId);
+                  setState(() {});
+                },
+                child: const Text('Mark as verified (test only)'),
+              ),
+            ],
             const SizedBox(height: 32),
             OutlinedButton.icon(
               onPressed: () => _logout(context),

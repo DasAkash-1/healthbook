@@ -17,8 +17,14 @@ class Doctor {
   final String id;
   final String name;
   final String specialty;
+  final String licenseNumber;
 
-  const Doctor({required this.id, required this.name, required this.specialty});
+  const Doctor({
+    required this.id,
+    required this.name,
+    required this.specialty,
+    this.licenseNumber = '',
+  });
 }
 
 class Appointment {

@@ -32,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   UserRole _role = UserRole.patient;
   String? _specialty;
+  final _licenseCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -41,6 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _dobCtrl.dispose();
+    _licenseCtrl.dispose();
     super.dispose();
   }
 
@@ -91,6 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           phone: _phoneCtrl.text.trim(),
           dateOfBirth: _dob!,
           specialty: _role == UserRole.doctor ? _specialty : null,
+          licenseNumber: _role == UserRole.doctor ? _licenseCtrl.text.trim() : null,
         ),
       );
       if (!mounted) return;
@@ -312,6 +315,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
             validator: (_) => Validators.dateOfBirth(_dob),
           ),
           if (_role == UserRole.doctor) _buildSpecialtyPicker(),
+          if (_role == UserRole.doctor)
+            _field(
+              controller: _licenseCtrl,
+              label: 'Medical license number',
+              icon: Icons.badge_outlined,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'License number is required'
+                  : null,
+            ),
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: _loading ? null : _submit,
