@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import 'doctor_directory_screen.dart';
+import 'bmi_screen.dart';
 import 'feature_screen.dart';
 import 'login_screen.dart';
 import 'my_appointments_screen.dart';
+import 'prescriptions_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -49,6 +51,7 @@ class _HomePageState extends State<HomePage> {
     final Widget screen = switch (title) {
       'Doctors' => const DoctorDirectoryScreen(),
       'Appointments' => const MyAppointmentsScreen(),
+      'Prescriptions' => PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
       _ => FeatureScreen(
           title: title,
           icon: item['icon'] as IconData,
@@ -129,7 +132,29 @@ class _HomePageState extends State<HomePage> {
               'No prescriptions added yet.'),
           _recordTile(
               'Test Results', CupertinoIcons.search, 'No test results added yet.'),
+          _bmiTile(),
         ],
+      ),
+    );
+  }
+
+  Widget _bmiTile() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: ListTile(
+        tileColor: const Color(0xFFF4F7FB),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        leading: const Icon(Icons.monitor_weight_outlined, color: Color(0xFF102A66)),
+        title: const Text(
+          'BMI Calculator',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D1B2A)),
+        ),
+        subtitle: const Text('Check your body mass index'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BmiScreen()),
+        ),
       ),
     );
   }
@@ -152,11 +177,13 @@ class _HomePageState extends State<HomePage> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => FeatureScreen(
-              title: title,
-              icon: icon,
-              emptyMessage: emptyMessage,
-            ),
+            builder: (_) => title == 'Prescriptions'
+                ? PrescriptionsScreen(patientId: authService.currentUser?.id ?? '')
+                : FeatureScreen(
+                    title: title,
+                    icon: icon,
+                    emptyMessage: emptyMessage,
+                  ),
           ),
         ),
       ),
