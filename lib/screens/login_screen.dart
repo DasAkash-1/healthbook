@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_models.dart';
 import '../services/auth_service.dart';
+import 'doctor_home_page.dart';
 import 'home_page.dart';
 import 'register_screen.dart';
 
@@ -37,11 +39,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _loading = true);
     try {
-      await authService.login(email: email, password: password);
+      final user = await authService.login(email: email, password: password);
       if (!mounted) return;
+      final Widget next = user.role == UserRole.doctor
+          ? const DoctorHomePage()
+          : const HomePage();
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+        MaterialPageRoute(builder: (_) => next),
       );
     } on AuthException catch (e) {
       if (!mounted) return;

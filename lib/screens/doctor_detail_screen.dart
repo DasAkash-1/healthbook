@@ -65,6 +65,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     try {
       clinicStore.requestAppointment(
         patientId: user.id,
+        patientName: user.name,
         doctorId: widget.doctor.id,
         start: start,
         note: note,

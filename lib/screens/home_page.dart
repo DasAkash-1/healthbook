@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'doctor_directory_screen.dart';
 import 'feature_screen.dart';
+import 'login_screen.dart';
 import 'my_appointments_screen.dart';
 
 class HomePage extends StatefulWidget {
@@ -63,13 +64,49 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return const MyAppointmentsScreen();
       default:
-        return const Center(
-          child: Text(
-            'Profile coming soon',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        );
+        return _buildProfileTab();
     }
+  }
+
+  Widget _buildProfileTab() {
+    final user = authService.currentUser;
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 40,
+              backgroundColor: Color(0xFFDCE6FF),
+              child: Icon(Icons.person, size: 40, color: Color(0xFF102A66)),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              user?.name ?? '',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(user?.id ?? '', style: TextStyle(color: Colors.grey[700])),
+            const SizedBox(height: 32),
+            OutlinedButton.icon(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout),
+              label: const Text('Log out'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _logout() {
+    authService.logout();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   Widget _buildRecordsTab() {
