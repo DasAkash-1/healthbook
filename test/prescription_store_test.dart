@@ -38,7 +38,9 @@ void main() {
   });
 
   // Patient gets an approved appointment with a doctor, which makes them eligible for access.
+  // The doctor first opens that hour on their schedule, as they would in the app.
   void approve(String doctorId, {int hour = 9}) {
+    clinic.setHourOpen(doctorId, _tomorrowAt(hour), true);
     final appt = clinic.requestAppointment(
       patientId: patient,
       doctorId: doctorId,
