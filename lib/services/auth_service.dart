@@ -1,13 +1,18 @@
+import '../models/app_models.dart';
+import 'clinic_store.dart';
+
 // Details collected on the second registration step.
 class UserProfile {
   final String name;
   final String phone;
   final DateTime dateOfBirth;
+  final String? specialty; // doctors only
 
   const UserProfile({
     required this.name,
     required this.phone,
     required this.dateOfBirth,
+    this.specialty,
   });
 }
 
@@ -20,29 +25,43 @@ class AuthException implements Exception {
 }
 
 abstract class AuthService {
+  AppUser? get currentUser;
+
   Future<void> register({
     required String email,
     required String password,
+    required UserRole role,
     required UserProfile profile,
   });
 
-  Future<void> login({
+  Future<AppUser> login({
     required String email,
     required String password,
   });
+}
+
+class _Account {
+  final String password;
+  final AppUser user;
+
+  _Account({required this.password, required this.user});
 }
 
 // TEMPORARY: accounts are kept in memory and cleared when the app restarts.
 // Passwords are kept in plain text here so login can be tested. This is NOT
 // secure. Replace with a Firebase version later.
 class FakeAuthService implements AuthService {
-  final Map<String, UserProfile> _accounts = {};
-  final Map<String, String> _passwords = {};
+  final Map<String, _Account> _accounts = {};
+  AppUser? _current;
+
+  @override
+  AppUser? get currentUser => _current;
 
   @override
   Future<void> register({
     required String email,
     required String password,
+    required UserRole role,
     required UserProfile profile,
   }) async {
     await Future.delayed(const Duration(seconds: 1)); // simulates network delay
@@ -51,21 +70,36 @@ class FakeAuthService implements AuthService {
     if (_accounts.containsKey(key)) {
       throw AuthException('An account already exists for this email.');
     }
-    _accounts[key] = profile;
-    _passwords[key] = password;
+
+    if (role == UserRole.doctor && profile.specialty == null) {
+      throw AuthException('Please choose your specialty.');
+    }
+
+    final user = AppUser(id: key, name: profile.name, role: role);
+    _accounts[key] = _Account(password: password, user: user);
+
+    if (role == UserRole.doctor) {
+      clinicStore.addDoctor(
+        Doctor(id: key, name: profile.name, specialty: profile.specialty!),
+      );
+    }
   }
 
   @override
-  Future<void> login({
+  Future<AppUser> login({
     required String email,
     required String password,
   }) async {
     await Future.delayed(const Duration(seconds: 1)); // simulates network delay
 
     final key = email.trim().toLowerCase();
-    if (_passwords[key] != password) {
+    final account = _accounts[key];
+    if (account == null || account.password != password) {
       throw AuthException('Incorrect email or password.');
     }
+
+    _current = account.user;
+    return account.user;
   }
 }
 
