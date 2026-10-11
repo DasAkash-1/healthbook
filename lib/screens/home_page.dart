@@ -6,6 +6,7 @@ import 'doctor_directory_screen.dart';
 import 'bmi_screen.dart';
 import 'feature_screen.dart';
 import 'login_screen.dart';
+import 'medical_history_screen.dart';
 import 'my_appointments_screen.dart';
 import 'prescriptions_screen.dart';
 
@@ -133,6 +134,8 @@ class _HomePageState extends State<HomePage> {
           _recordTile(
               'Test Results', CupertinoIcons.search, 'No test results added yet.'),
           _bmiTile(),
+          _recordTile(
+              'Medical History', Icons.health_and_safety_outlined, 'No medical history recorded yet.'),
         ],
       ),
     );
@@ -177,13 +180,17 @@ class _HomePageState extends State<HomePage> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => title == 'Prescriptions'
-                ? PrescriptionsScreen(patientId: authService.currentUser?.id ?? '')
-                : FeatureScreen(
-                    title: title,
-                    icon: icon,
-                    emptyMessage: emptyMessage,
-                  ),
+            builder: (_) => switch (title) {
+                  'Prescriptions' =>
+                    PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
+                  'Medical History' =>
+                    MedicalHistoryScreen(patientId: authService.currentUser?.id ?? ''),
+                  _ => FeatureScreen(
+                      title: title,
+                      icon: icon,
+                      emptyMessage: emptyMessage,
+                    ),
+                },
           ),
         ),
       ),
