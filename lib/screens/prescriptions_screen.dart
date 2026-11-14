@@ -1,15 +1,17 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models/prescription_models.dart';
 import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
+import '../utils/formatters.dart';
+import 'create_prescription_screen.dart';
 import 'doctor_access_screen.dart';
 import 'medical_history_screen.dart';
-import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
+import 'test_results_screen.dart';
 
 // Shared by the patient and by a doctor with access.
-// The patient can only log doses and manage access. Doctors manage medications.
 class PrescriptionsScreen extends StatefulWidget {
   final String patientId;
   final bool isDoctor;
@@ -48,27 +50,73 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     }
   }
 
-  void _removeMedication(Medication m) {
+  Future<void> _uploadExternalPrescription() async {
     try {
-      prescriptionStore.removeMedication(
-        patientId: widget.patientId,
-        doctorId: _viewerId,
-        medicationId: m.id,
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
       );
-      _refresh();
-    } on PrescriptionException catch (e) {
-      _showError(e.message);
+
+      if (!mounted) return;
+
+      if (result != null && result.files.single.path != null) {
+        final file = result.files.single;
+        prescriptionStore.uploadExternalPrescription(
+          patientId: widget.patientId,
+          fileName: file.name,
+          filePath: file.path!,
+        );
+        _refresh();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('External prescription uploaded successfully.')),
+        );
+      }
+    } catch (e) {
+      _showError('Failed to pick PDF file: $e');
     }
   }
 
-  Future<void> _openForm({Medication? existing}) async {
+  void _removeExternal(PrescriptionRecord record) {
+    prescriptionStore.removeExternalPrescription(
+      patientId: widget.patientId,
+      recordId: record.id,
+    );
+    _refresh();
+  }
+
+  void _viewExternal(PrescriptionRecord record) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('External Prescription'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('File Name: ${record.externalFileName ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Uploaded On: ${formatDateTime(record.date)}'),
+            const SizedBox(height: 8),
+            Text('File Path:\n${record.externalFilePath ?? 'N/A'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openCreatePrescription() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MedicationFormScreen(
+        builder: (_) => CreatePrescriptionScreen(
           patientId: widget.patientId,
           doctorId: _viewerId,
-          existing: existing,
         ),
       ),
     );
@@ -91,19 +139,9 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
               Expanded(
                 child: Text(
                   '${m.name} ${m.dose}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0D1B2A)),
                 ),
               ),
-              if (widget.isDoctor) ...[
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _openForm(existing: m),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => _removeMedication(m),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -139,6 +177,63 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     );
   }
 
+  Widget _externalPrescriptionCard(PrescriptionRecord record, bool isPatient) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4EC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'External Prescription',
+                  style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const Spacer(),
+              if (isPatient)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  onPressed: () => _removeExternal(record),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            record.externalFileName ?? 'Prescription PDF',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Uploaded on ${formatDateTime(record.date)}',
+            style: TextStyle(color: Colors.grey[700], fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: () => _viewExternal(record),
+              icon: const Icon(Icons.picture_as_pdf, size: 16),
+              label: const Text('View PDF'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewerId = _viewerId;
@@ -150,8 +245,19 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Prescriptions'),
+        title: const Text('Prescriptions & History'),
         actions: [
+          if (canView)
+            IconButton(
+              icon: const Icon(Icons.science_outlined),
+              tooltip: 'Test Results',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TestResultsScreen(patientId: widget.patientId, isDoctor: widget.isDoctor),
+                ),
+              ),
+            ),
           if (canView)
             IconButton(
               icon: const Icon(Icons.health_and_safety_outlined),
@@ -189,9 +295,10 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       ),
       floatingActionButton: (widget.isDoctor && canView)
           ? FloatingActionButton.extended(
-              onPressed: () => _openForm(),
+              onPressed: _openCreatePrescription,
               icon: const Icon(Icons.add),
-              label: const Text('Add medication'),
+              label: const Text('New Prescription'),
+              backgroundColor: const Color(0xFF102A66),
             )
           : null,
       body: !canView
@@ -210,33 +317,69 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
 
   Widget _buildBody(bool isPatient) {
     final medications = prescriptionStore.medicationsFor(widget.patientId);
-
-    if (medications.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            isPatient
-                ? 'No medications yet. Your doctor can add them after you grant access.'
-                : 'No medications yet. Add the first one below.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
+    final externalRecords = prescriptionStore.externalPrescriptionsFor(widget.patientId);
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        if (isPatient)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              'Log each dose as taken or missed. Only your doctors can change medications.',
-              style: TextStyle(color: Colors.grey[700]),
-            ),
+        if (isPatient) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Upload External Prescription',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0D1B2A)),
+              ),
+              ElevatedButton.icon(
+                onPressed: _uploadExternalPrescription,
+                icon: const Icon(Icons.upload_file, size: 16),
+                label: const Text('Upload PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF102A66),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
           ),
-        for (final m in medications) _medicationCard(m),
+          const SizedBox(height: 8),
+          Text(
+            'Upload previous prescriptions from doctors outside HealthBook so your current doctor can review them.',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        if (externalRecords.isNotEmpty) ...[
+          const Text(
+            'Patient Uploaded / External Prescriptions',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0D1B2A)),
+          ),
+          const SizedBox(height: 10),
+          for (final record in externalRecords) _externalPrescriptionCard(record, isPatient),
+          const SizedBox(height: 20),
+        ],
+
+        const Text(
+          'HealthBook Medications',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0D1B2A)),
+        ),
+        const SizedBox(height: 10),
+        if (medications.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                isPatient
+                    ? 'No medications prescribed yet. Your doctor can add them after you grant access.'
+                    : 'No medications prescribed yet. Click "New Prescription" below.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+          )
+        else
+          for (final m in medications) _medicationCard(m),
       ],
     );
   }

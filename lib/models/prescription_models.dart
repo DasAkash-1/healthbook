@@ -33,6 +33,78 @@ class Medication {
   }
 }
 
+class RecommendedTest {
+  final String id;
+  final String name;
+  final String instructions;
+  final String status; // 'Pending', 'Result Uploaded'
+  final String? uploadedFilePath;
+  final String? uploadedFileName;
+  final DateTime? uploadedAt;
+  final String recommendingDoctorId;
+  final String recommendingDoctorName;
+  final DateTime recommendedAt;
+
+  const RecommendedTest({
+    required this.id,
+    required this.name,
+    this.instructions = '',
+    this.status = 'Pending',
+    this.uploadedFilePath,
+    this.uploadedFileName,
+    this.uploadedAt,
+    required this.recommendingDoctorId,
+    required this.recommendingDoctorName,
+    required this.recommendedAt,
+  });
+
+  RecommendedTest copyWith({
+    String? status,
+    String? uploadedFilePath,
+    String? uploadedFileName,
+    DateTime? uploadedAt,
+  }) {
+    return RecommendedTest(
+      id: id,
+      name: name,
+      instructions: instructions,
+      status: status ?? this.status,
+      uploadedFilePath: uploadedFilePath ?? this.uploadedFilePath,
+      uploadedFileName: uploadedFileName ?? this.uploadedFileName,
+      uploadedAt: uploadedAt ?? this.uploadedAt,
+      recommendingDoctorId: recommendingDoctorId,
+      recommendingDoctorName: recommendingDoctorName,
+      recommendedAt: recommendedAt,
+    );
+  }
+}
+
+class PrescriptionRecord {
+  final String id;
+  final String patientId;
+  final String? doctorId;
+  final String? doctorName;
+  final DateTime date;
+  final List<Medication> medications;
+  final List<RecommendedTest> recommendedTests;
+  final bool isExternal;
+  final String? externalFileName;
+  final String? externalFilePath;
+
+  const PrescriptionRecord({
+    required this.id,
+    required this.patientId,
+    this.doctorId,
+    this.doctorName,
+    required this.date,
+    this.medications = const [],
+    this.recommendedTests = const [],
+    this.isExternal = false,
+    this.externalFileName,
+    this.externalFilePath,
+  });
+}
+
 // One entry in a prescription's history. Only doctor changes are recorded here.
 class PrescriptionVersion {
   final int number;
