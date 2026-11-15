@@ -29,10 +29,14 @@ class ClinicStore {
   final Set<String> _verified = {};
   final List<Appointment> _appointments = [];
   int _nextId = 1;
+  final DateTime Function() _clock;
 
-  ClinicStore() {
+  // [clock] lets tests move time forward. The app uses the real clock.
+  ClinicStore({DateTime Function()? clock}) : _clock = clock ?? DateTime.now {
     _seedDoctors();
   }
+
+  DateTime _now() => _clock();
 
   // Sample doctors so patients can try the flow before real doctors sign up.
   void _seedDoctors() {
@@ -45,7 +49,7 @@ class ClinicStore {
     _verified.addAll(seeds.map((d) => d.id));
 
     // Open 9:00 to 16:00 tomorrow for each seeded doctor.
-    final tomorrow = _dayStart(DateTime.now()).add(const Duration(days: 1));
+    final tomorrow = _dayStart(_now()).add(const Duration(days: 1));
     for (final doctor in seeds) {
       final hours = _openHours.putIfAbsent(doctor.id, () => <DateTime>{});
       for (var h = 9; h < 17; h++) {
@@ -84,6 +88,12 @@ class ClinicStore {
     _verified.add(doctorId);
   }
 
+  // Removes a doctor's verified status, for example when a license expires.
+  // TODO(backend): verification is managed on the server.
+  void unverifyDoctor(String doctorId) {
+    _verified.remove(doctorId);
+  }
+
   List<Doctor> searchDoctors({
     String query = '',
     String? specialty,
@@ -105,7 +115,7 @@ class ClinicStore {
   // ---------- Time and availability ----------
 
   bool _inBookingWindow(DateTime hour) {
-    final now = DateTime.now();
+    final now = _now();
     return hour.isAfter(now) &&
         hour.isBefore(now.add(Duration(days: kBookingWindowDays)));
   }
@@ -126,6 +136,9 @@ class ClinicStore {
 
   // Open hours on the given day that are still free to book.
   List<DateTime> availableSlotsOn(String doctorId, DateTime day) {
+    // Doctors who are not verified cannot take bookings, so they show no slots.
+    if (!isVerified(doctorId)) return [];
+
     final open = _openHours[doctorId] ?? <DateTime>{};
     final slots = open
         .where((h) =>
@@ -138,7 +151,7 @@ class ClinicStore {
   }
 
   bool hasAvailability(String doctorId) {
-    final today = _dayStart(DateTime.now());
+    final today = _dayStart(_now());
     for (var i = 0; i < kBookingWindowDays; i++) {
       final day = today.add(Duration(days: i));
       if (availableSlotsOn(doctorId, day).isNotEmpty) return true;
@@ -184,15 +197,49 @@ class ClinicStore {
     return true;
   }
 
+  // Pending or approved bookings the patient still has with this doctor.
+  bool _hasUpcomingBookingWith(String patientId, String doctorId) {
+    final now = _now();
+    return _appointments.any(
+      (a) =>
+          a.patientId == patientId &&
+          a.doctorId == doctorId &&
+          a.isUpcomingAt(now),
+    );
+  }
+
+  // Pending or approved bookings on the same calendar day, even if the visit has passed.
+  bool _hasBookingWithOnDay(String patientId, String doctorId, DateTime day) {
+    return _appointments.any(
+      (a) =>
+          a.patientId == patientId &&
+          a.doctorId == doctorId &&
+          a.isActive &&
+          _dayStart(a.start) == _dayStart(day),
+    );
+  }
+
   // TODO(backend): check that the slot is free and save the request in one database
   // transaction, so two patients cannot book the same slot.
   Appointment requestAppointment({
     required String patientId,
     required String doctorId,
     required DateTime start,
+    String visitType = '',
     String note = '',
     String patientName = '',
   }) {
+    if (doctorById(doctorId) == null) {
+      throw BookingException('Doctor not found.');
+    }
+    if (!isVerified(doctorId)) {
+      throw BookingException(
+        'This doctor is waiting for verification and cannot take bookings yet.',
+      );
+    }
+    if (visitType.isNotEmpty && !kVisitTypes.contains(visitType)) {
+      throw BookingException('Choose a visit type from the list.');
+    }
     if (!_inBookingWindow(start)) {
       throw BookingException('This time is outside the booking window.');
     }
@@ -201,6 +248,16 @@ class ClinicStore {
     }
     if (_isBooked(doctorId, start)) {
       throw BookingException('This slot has already been booked.');
+    }
+    // One upcoming booking per doctor, so other patients get a chance too.
+    if (_hasUpcomingBookingWith(patientId, doctorId)) {
+      throw BookingException(
+        'You already have an appointment with this doctor. You can book again after it has passed or been cancelled.',
+      );
+    }
+    // No second visit with the same doctor on the same day.
+    if (_hasBookingWithOnDay(patientId, doctorId, start)) {
+      throw BookingException('You already have a visit with this doctor on that day.');
     }
     if (!_respectsGap(patientId, doctorId, start)) {
       throw BookingException(
@@ -214,6 +271,7 @@ class ClinicStore {
       patientName: patientName,
       doctorId: doctorId,
       start: start,
+      visitType: visitType,
       note: note,
     );
     _appointments.add(appointment);
@@ -226,16 +284,30 @@ class ClinicStore {
     return list;
   }
 
-  // TODO(backend): save the new status in the database.
-  void cancelAppointment(String appointmentId, String patientId) {
+  // A pending request can be cancelled without a reason. Once the doctor has approved
+  // it, only the patient can cancel, and must say why.
+  // TODO(backend): save the new status and reason in the database.
+  void cancelAppointment(
+    String appointmentId,
+    String patientId, {
+    String reason = '',
+  }) {
     final a = _findAppointment(appointmentId);
     if (a == null || a.patientId != patientId) {
       throw BookingException('Appointment not found.');
     }
-    if (a.status != AppointmentStatus.pending) {
-      throw BookingException('Approved appointments cannot be cancelled.');
+    if (!a.isActive) {
+      throw BookingException('This appointment is already ${a.status.name}.');
+    }
+    if (!a.start.isAfter(_now())) {
+      throw BookingException('This appointment has already started and cannot be cancelled.');
+    }
+    final cleaned = reason.trim();
+    if (a.status == AppointmentStatus.approved && cleaned.isEmpty) {
+      throw BookingException('Please give a reason for cancelling an approved appointment.');
     }
     a.status = AppointmentStatus.cancelled;
+    a.reason = cleaned;
   }
 
   // ---------- Requests (doctor) ----------
@@ -258,16 +330,30 @@ class ClinicStore {
     a.status = AppointmentStatus.approved;
   }
 
-  // TODO(backend): save the new status in the database.
-  void rejectAppointment(String appointmentId, String doctorId) {
+  // Only pending requests can be rejected, and the doctor must say why.
+  // After approval the doctor cannot cancel; only the patient can.
+  // TODO(backend): save the new status and reason in the database.
+  void rejectAppointment(
+    String appointmentId,
+    String doctorId, {
+    required String reason,
+  }) {
     final a = _findAppointment(appointmentId);
     if (a == null || a.doctorId != doctorId) {
       throw BookingException('Appointment not found.');
     }
+    if (a.status == AppointmentStatus.approved) {
+      throw BookingException('Approved appointments cannot be cancelled by the doctor.');
+    }
     if (a.status != AppointmentStatus.pending) {
       throw BookingException('Only pending requests can be rejected.');
     }
+    final cleaned = reason.trim();
+    if (cleaned.isEmpty) {
+      throw BookingException('Please give a reason for rejecting this request.');
+    }
     a.status = AppointmentStatus.rejected;
+    a.reason = cleaned;
   }
 
   Appointment? _findAppointment(String id) {

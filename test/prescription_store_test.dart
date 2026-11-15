@@ -99,9 +99,13 @@ void main() {
       );
     });
 
-    test('an unverified doctor cannot change a prescription, even with access', () {
+    test('a doctor who loses verification cannot change a prescription, even with access', () {
+      // Unverified doctors cannot be booked, so this doctor is verified first
+      // and loses verification after the patient has granted access.
+      clinic.verifyDoctor(unverifiedDoctor);
       approve(unverifiedDoctor, hour: 14);
       store.grantAccess(patient, unverifiedDoctor);
+      clinic.unverifyDoctor(unverifiedDoctor);
       expect(
         () => addMed(unverifiedDoctor),
         throwsA(predicate((e) =>

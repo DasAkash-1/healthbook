@@ -4,6 +4,7 @@ import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../services/clinic_store.dart';
 import '../utils/formatters.dart';
+import '../widgets/reason_dialog.dart';
 
 class MyAppointmentsScreen extends StatefulWidget {
   const MyAppointmentsScreen({super.key});
@@ -17,27 +18,41 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     final user = authService.currentUser;
     if (user == null) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel this request?'),
-        content: const Text('The slot will be released for other patients.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel request', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    var reason = '';
+    if (a.status == AppointmentStatus.approved) {
+      // The doctor already approved this visit, so the doctor needs to know why.
+      final picked = await askForReason(
+        context,
+        title: 'Cancel this appointment?',
+        message: 'This appointment is approved. Please tell the doctor why you are cancelling.',
+        options: kPatientCancelReasons,
+        confirmLabel: 'Cancel appointment',
+      );
+      if (picked == null || !mounted) return;
+      reason = picked;
+    } else {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Cancel this request?'),
+          content: const Text('The slot will be released for other patients.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cancel request', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
 
     try {
-      clinicStore.cancelAppointment(a.id, user.id);
+      clinicStore.cancelAppointment(a.id, user.id, reason: reason);
       setState(() {});
     } on BookingException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,7 +96,8 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 
   Widget _buildCard(Appointment a) {
     final doctor = clinicStore.doctorById(a.doctorId);
-    final canCancel = a.status == AppointmentStatus.pending;
+    // Pending and approved visits can be cancelled until they start.
+    final canCancel = a.isActive && a.start.isAfter(DateTime.now());
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -108,9 +124,24 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
             '${formatDay(a.start)} • ${formatSlot(a.start)}',
             style: TextStyle(color: Colors.grey[800]),
           ),
+          if (a.visitType.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('Visit type: ${a.visitType}', style: TextStyle(color: Colors.grey[700])),
+          ],
           if (a.note.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text('Note: ${a.note}', style: TextStyle(color: Colors.grey[700])),
+          ],
+          if (a.status == AppointmentStatus.rejected && a.reason.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Reason from the doctor: ${a.reason}',
+              style: TextStyle(color: Colors.red[800]),
+            ),
+          ],
+          if (a.status == AppointmentStatus.cancelled && a.reason.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('Your reason: ${a.reason}', style: TextStyle(color: Colors.grey[700])),
           ],
           if (canCancel) ...[
             const SizedBox(height: 8),
@@ -118,9 +149,11 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () => _confirmCancel(a),
-                child: const Text(
-                  'Cancel request',
-                  style: TextStyle(color: Colors.red),
+                child: Text(
+                  a.status == AppointmentStatus.approved
+                      ? 'Cancel appointment'
+                      : 'Cancel request',
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ),
