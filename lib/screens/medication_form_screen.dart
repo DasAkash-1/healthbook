@@ -161,7 +161,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             ),
             _field(
               controller: _remainingCtrl,
-              label: 'Doses left',
+              label: isEdit ? 'Doses left (replaces the patient\'s current count)' : 'Doses left',
               keyboardType: TextInputType.number,
             ),
             _field(

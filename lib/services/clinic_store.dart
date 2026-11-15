@@ -17,6 +17,11 @@ const Duration kBookingGap = Duration(hours: 1);
 DateTime _dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
 
 // In-memory clinic data. Replace with a Firebase version later, keeping the same methods.
+//
+// TODO(backend): every method below that reads or changes the lists should become a
+// database call. Keep the method names, the arguments and the BookingException messages
+// the same, so no screen has to change. The booking rules here must also be enforced on
+// the server, not only here.
 class ClinicStore {
   final List<Doctor> _doctors = [];
   // doctorId -> hours the doctor has opened (exact hour marks)
@@ -65,6 +70,7 @@ class ClinicStore {
     return null;
   }
 
+  // TODO(backend): save the doctor profile in the database.
   void addDoctor(Doctor doctor) {
     _doctors.add(doctor);
   }
@@ -72,6 +78,8 @@ class ClinicStore {
   bool isVerified(String doctorId) => _verified.contains(doctorId);
 
   // Marks a doctor as verified. Real license checks come with the backend.
+  // TODO(backend): verification should be done on the server. The app should only read
+  // the result, so this method will no longer be called from the app.
   void verifyDoctor(String doctorId) {
     _verified.add(doctorId);
   }
@@ -141,6 +149,7 @@ class ClinicStore {
   // ---------- Doctor schedule ----------
 
   // Opens or closes one hour. Closing is refused if that hour has bookings.
+  // TODO(backend): save the open or closed hour in the database.
   void setHourOpen(String doctorId, DateTime hour, bool open) {
     final hours = _openHours.putIfAbsent(doctorId, () => <DateTime>{});
     if (open) {
@@ -175,6 +184,8 @@ class ClinicStore {
     return true;
   }
 
+  // TODO(backend): check that the slot is free and save the request in one database
+  // transaction, so two patients cannot book the same slot.
   Appointment requestAppointment({
     required String patientId,
     required String doctorId,
@@ -215,6 +226,7 @@ class ClinicStore {
     return list;
   }
 
+  // TODO(backend): save the new status in the database.
   void cancelAppointment(String appointmentId, String patientId) {
     final a = _findAppointment(appointmentId);
     if (a == null || a.patientId != patientId) {
@@ -234,6 +246,7 @@ class ClinicStore {
     return list;
   }
 
+  // TODO(backend): save the new status in the database.
   void approveAppointment(String appointmentId, String doctorId) {
     final a = _findAppointment(appointmentId);
     if (a == null || a.doctorId != doctorId) {
@@ -245,6 +258,7 @@ class ClinicStore {
     a.status = AppointmentStatus.approved;
   }
 
+  // TODO(backend): save the new status in the database.
   void rejectAppointment(String appointmentId, String doctorId) {
     final a = _findAppointment(appointmentId);
     if (a == null || a.doctorId != doctorId) {

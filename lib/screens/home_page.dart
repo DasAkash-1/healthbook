@@ -2,6 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/medical_history_store.dart';
+import '../services/prescription_store.dart';
+import '../utils/formatters.dart';
 import 'doctor_directory_screen.dart';
 import 'bmi_screen.dart';
 import 'feature_screen.dart';
@@ -9,6 +12,7 @@ import 'login_screen.dart';
 import 'medical_history_screen.dart';
 import 'my_appointments_screen.dart';
 import 'prescriptions_screen.dart';
+import 'test_results_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,13 +57,17 @@ class _HomePageState extends State<HomePage> {
       'Doctors' => const DoctorDirectoryScreen(),
       'Appointments' => const MyAppointmentsScreen(),
       'Prescriptions' => PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
+      'Test Results' => TestResultsScreen(patientId: authService.currentUser?.id ?? ''),
       _ => FeatureScreen(
           title: title,
           icon: item['icon'] as IconData,
           emptyMessage: item['empty'] as String,
         ),
     };
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((_) {
+      // Refresh the Records tab summaries when the person comes back.
+      if (mounted) setState(() {});
+    });
   }
 
   Widget _buildTab(int index) {
@@ -114,7 +122,40 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  String _plural(int n, String one, String many) => n == 1 ? '$n $one' : '$n $many';
+
+  // Short lines shown under each tile on the Records tab.
+  String _prescriptionsSummary(String patientId) {
+    final medicines = prescriptionStore.medicationsFor(patientId).length;
+    final pdfs = prescriptionStore.externalPrescriptionsFor(patientId).length;
+    if (medicines == 0 && pdfs == 0) return 'No prescriptions added yet.';
+
+    final parts = <String>[];
+    if (medicines > 0) parts.add(_plural(medicines, 'medicine', 'medicines'));
+    if (pdfs > 0) parts.add(_plural(pdfs, 'uploaded PDF', 'uploaded PDFs'));
+
+    final records = prescriptionStore.recordsFor(patientId);
+    parts.add('last added ${formatDay(records.last.date)}');
+    return parts.join(' • ');
+  }
+
+  String _testResultsSummary(String patientId) {
+    final tests = prescriptionStore.recommendedTestsFor(patientId);
+    if (tests.isEmpty) return 'No test results added yet.';
+
+    final uploaded = tests.where((t) => t.status == 'Result Uploaded').length;
+    return '${_plural(tests.length, 'test', 'tests')} • '
+        '${_plural(uploaded, 'result uploaded', 'results uploaded')}';
+  }
+
+  String _medicalHistorySummary(String patientId) {
+    final history = medicalHistoryStore.historyFor(patientId, patientId);
+    if (history == null) return 'No medical history recorded yet.';
+    return 'Last updated ${formatDay(history.updatedAt)}';
+  }
+
   Widget _buildRecordsTab() {
+    final patientId = authService.currentUser?.id ?? '';
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -130,12 +171,12 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 16),
           _recordTile('Prescriptions', CupertinoIcons.doc_text_fill,
-              'No prescriptions added yet.'),
-          _recordTile(
-              'Test Results', CupertinoIcons.search, 'No test results added yet.'),
+              _prescriptionsSummary(patientId)),
+          _recordTile('Test Results', CupertinoIcons.search,
+              _testResultsSummary(patientId)),
           _bmiTile(),
-          _recordTile(
-              'Medical History', Icons.health_and_safety_outlined, 'No medical history recorded yet.'),
+          _recordTile('Medical History', Icons.health_and_safety_outlined,
+              _medicalHistorySummary(patientId)),
         ],
       ),
     );
@@ -162,7 +203,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _recordTile(String title, IconData icon, String emptyMessage) {
+  Widget _recordTile(String title, IconData icon, String subtitle) {
+    final patientId = authService.currentUser?.id ?? '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: ListTile(
@@ -176,23 +218,26 @@ class _HomePageState extends State<HomePage> {
             color: Color(0xFF0D1B2A),
           ),
         ),
+        subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => switch (title) {
-                  'Prescriptions' =>
-                    PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
-                  'Medical History' =>
-                    MedicalHistoryScreen(patientId: authService.currentUser?.id ?? ''),
-                  _ => FeatureScreen(
-                      title: title,
-                      icon: icon,
-                      emptyMessage: emptyMessage,
-                    ),
-                },
+              'Prescriptions' => PrescriptionsScreen(patientId: patientId),
+              'Test Results' => TestResultsScreen(patientId: patientId),
+              'Medical History' => MedicalHistoryScreen(patientId: patientId),
+              _ => FeatureScreen(
+                  title: title,
+                  icon: icon,
+                  emptyMessage: subtitle,
+                ),
+            },
           ),
-        ),
+        ).then((_) {
+          // Refresh the summary lines when the person comes back.
+          if (mounted) setState(() {});
+        }),
       ),
     );
   }
@@ -208,15 +253,11 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Custom Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu, color: Color(0xFF0D1B2A), size: 28),
-                    onPressed: () {},
-                  ),
-                  const Text(
+              // Header. The menu and settings icons are hidden until they have a use.
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(
+                  child: Text(
                     'Healthbook',
                     style: TextStyle(
                       fontFamily: 'Georgia',
@@ -226,17 +267,7 @@ class _HomePageState extends State<HomePage> {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF0D1B2A), width: 1.5),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.settings_outlined, color: Color(0xFF0D1B2A), size: 22),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 16),
 
