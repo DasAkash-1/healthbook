@@ -15,6 +15,7 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 - Grant or revoke a doctor's access to prescriptions and medical history
 - Log doses as taken or missed
 - View and update medical history (allergies, conditions, surgeries, current medicines)
+- Upload outside prescriptions (PDF) and test result files
 - Calculate BMI
 
 **Doctors**
@@ -33,6 +34,8 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 - Patients must leave a one-hour gap between appointments with different doctors.
 - Approved appointments cannot be cancelled.
 - Medical history can only be changed by the patient.
+- A doctor keeps access to a patient's prescription until the patient removes it.
+- Editing a medication sets the patient's remaining doses to the number the doctor enters.
 
 ## Getting started
 
@@ -111,6 +114,7 @@ The stores in `services/` are currently in memory. Each one has the same methods
 - Patient booking flow and doctor schedule and requests
 - Prescriptions with access control and version history
 - Dose logging
+- Patients can upload outside prescriptions (PDF) and test results (only the file name and path are kept for now)
 - Medical history at registration and later
 - BMI calculator
 - Debug demo accounts
@@ -119,7 +123,8 @@ The stores in `services/` are currently in memory. Each one has the same methods
 **Not yet built**
 
 - Dose reminders and notifications
-- Checkup report and current prescription upload
+- Checkup report
+- Opening uploaded PDFs and images inside the app (for now only the file name and path are shown)
 - Firebase or any other backend
 - Real doctor verification (currently a test-only button in debug builds)
 

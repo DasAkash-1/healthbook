@@ -10,7 +10,16 @@ class PrescriptionException implements Exception {
   String toString() => message;
 }
 
+// Limits for one medication. The backend should enforce the same limits.
+const int kMinTimesPerDay = 1;
+const int kMaxTimesPerDay = 4;
+
 // In-memory prescriptions. Replace with a Firebase version later, keeping the same methods.
+//
+// TODO(backend): every method below that reads or changes the maps should become a
+// database call. Keep the method names, the arguments and the PrescriptionException
+// messages the same, so no screen has to change. The access and verification rules in
+// this file must also be enforced on the server, not only here.
 class PrescriptionStore {
   final ClinicStore _clinic;
 
@@ -39,6 +48,7 @@ class PrescriptionStore {
     return _access[patientId]?.contains(doctorId) ?? false;
   }
 
+  // TODO(backend): save the access grant in the database.
   void grantAccess(String patientId, String doctorId) {
     if (!eligibleDoctorIds(patientId).contains(doctorId)) {
       throw PrescriptionException(
@@ -48,6 +58,7 @@ class PrescriptionStore {
     _access.putIfAbsent(patientId, () => <String>{}).add(doctorId);
   }
 
+  // TODO(backend): remove the access grant from the database.
   void revokeAccess(String patientId, String doctorId) {
     _access[patientId]?.remove(doctorId);
   }
@@ -136,6 +147,25 @@ class PrescriptionStore {
     );
   }
 
+  // Checks one medication's fields. Used for new prescriptions and for edits.
+  void _validateMedication(Medication m) {
+    if (m.name.trim().isEmpty) {
+      throw PrescriptionException('Enter the medicine name.');
+    }
+    if (m.dose.trim().isEmpty) {
+      throw PrescriptionException('Enter the dose.');
+    }
+    if (m.timesPerDay < kMinTimesPerDay || m.timesPerDay > kMaxTimesPerDay) {
+      throw PrescriptionException(
+        'Times per day must be between $kMinTimesPerDay and $kMaxTimesPerDay.',
+      );
+    }
+    if (m.remainingDoses < 0) {
+      throw PrescriptionException('Doses left cannot be negative.');
+    }
+  }
+
+  // TODO(backend): save the record and its history entry together in one database write.
   PrescriptionRecord createPrescription({
     required String patientId,
     required String doctorId,
@@ -145,6 +175,9 @@ class PrescriptionStore {
     _requireDoctorEditAccess(patientId, doctorId);
     if (medications.isEmpty && recommendedTests.isEmpty) {
       throw PrescriptionException('A prescription must contain at least one medication or recommended test.');
+    }
+    for (final m in medications) {
+      _validateMedication(m);
     }
 
     final doctorName = _clinic.doctorById(doctorId)?.name ?? 'Doctor';
@@ -220,14 +253,18 @@ class PrescriptionStore {
     return med;
   }
 
+  // TODO(backend): update the medication and add the history entry in one database write.
   void updateMedication({
     required String patientId,
     required String doctorId,
     required Medication updated,
   }) {
     _requireDoctorEditAccess(patientId, doctorId);
+    _validateMedication(updated);
     final recs = _records[patientId];
-    if (recs == null) return;
+    if (recs == null) {
+      throw PrescriptionException('Medication not found.');
+    }
 
     bool found = false;
     for (final r in recs) {
@@ -244,6 +281,7 @@ class PrescriptionStore {
     _recordVersion(patientId, doctorId, 'Updated medication ${updated.name}');
   }
 
+  // TODO(backend): delete the medication and add the history entry in one database write.
   void removeMedication({
     required String patientId,
     required String doctorId,
@@ -251,7 +289,9 @@ class PrescriptionStore {
   }) {
     _requireDoctorEditAccess(patientId, doctorId);
     final recs = _records[patientId];
-    if (recs == null) return;
+    if (recs == null) {
+      throw PrescriptionException('Medication not found.');
+    }
 
     for (final r in recs) {
       final index = r.medications.indexWhere((m) => m.id == medicationId);
@@ -266,6 +306,7 @@ class PrescriptionStore {
 
   // ---------- Patient Uploads (External Prescriptions & Test Results) ----------
 
+  // TODO(backend): upload the PDF to file storage and keep its storage link here instead of a phone file path.
   PrescriptionRecord uploadExternalPrescription({
     required String patientId,
     required String fileName,
@@ -286,6 +327,7 @@ class PrescriptionStore {
     return record;
   }
 
+  // TODO(backend): delete the record and its stored file.
   void removeExternalPrescription({
     required String patientId,
     required String recordId,
@@ -295,6 +337,7 @@ class PrescriptionStore {
     list.removeWhere((r) => r.id == recordId && r.isExternal);
   }
 
+  // TODO(backend): upload the file to file storage and keep its storage link here instead of a phone file path.
   void uploadTestResult({
     required String patientId,
     required String testId,
@@ -328,6 +371,7 @@ class PrescriptionStore {
 
   // ---------- Dose logging (patient) ----------
 
+  // TODO(backend): save the new dose count and the dose log together in one database write.
   void logDose({
     required String patientId,
     required String medicationId,

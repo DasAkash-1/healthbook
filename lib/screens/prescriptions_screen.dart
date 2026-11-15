@@ -8,6 +8,7 @@ import '../utils/formatters.dart';
 import 'create_prescription_screen.dart';
 import 'doctor_access_screen.dart';
 import 'medical_history_screen.dart';
+import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
 import 'test_results_screen.dart';
 
@@ -123,6 +124,56 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     _refresh();
   }
 
+  // Doctor only. The store checks that the doctor is verified and has the patient's access.
+  Future<void> _editMedication(Medication m) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
+          patientId: widget.patientId,
+          doctorId: _viewerId,
+          existing: m,
+        ),
+      ),
+    );
+    _refresh();
+  }
+
+  Future<void> _removeMedication(Medication m) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove this medication?'),
+        content: Text(
+          '${m.name} ${m.dose} will be removed from the prescription. '
+          'The change is recorded in the prescription history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      prescriptionStore.removeMedication(
+        patientId: widget.patientId,
+        doctorId: _viewerId,
+        medicationId: m.id,
+      );
+      _refresh();
+    } on PrescriptionException catch (e) {
+      _showError(e.message);
+    }
+  }
+
   Widget _medicationCard(Medication m) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -168,6 +219,25 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                       ? () => _logDose(m, taken: true)
                       : null,
                   child: const Text('Taken'),
+                ),
+              ],
+            ),
+          ],
+          if (widget.isDoctor) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _removeMedication(m),
+                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  label: const Text('Remove', style: TextStyle(color: Colors.red)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _editMedication(m),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Edit'),
                 ),
               ],
             ),

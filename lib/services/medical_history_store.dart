@@ -11,6 +11,10 @@ class MedicalHistoryException implements Exception {
 
 // In-memory medical history. Replace with a Firebase version later, keeping the same methods.
 //
+// TODO(backend): read and write the history in the database. Keep the method names and
+// the MedicalHistoryException messages the same. The access rules below must also be
+// enforced on the server, not only here.
+//
 // Rules:
 // - The patient can view and update their own history.
 // - A doctor can only view it, and only with the patient's access (same grant as prescriptions).
@@ -22,6 +26,7 @@ class MedicalHistoryStore {
   MedicalHistoryStore(this._access);
 
   // Returns null if the patient hasn't recorded anything yet.
+  // TODO(backend): read the history from the database.
   MedicalHistory? historyFor(String patientId, String viewerId) {
     if (!_access.canView(patientId, viewerId)) {
       throw MedicalHistoryException('You do not have access to this medical history.');
@@ -29,6 +34,7 @@ class MedicalHistoryStore {
     return _records[patientId];
   }
 
+  // TODO(backend): save the history in the database.
   void save({
     required String patientId,
     required String editorId,
