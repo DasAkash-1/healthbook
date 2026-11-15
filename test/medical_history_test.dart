@@ -30,6 +30,7 @@ void main() {
     prescriptions = PrescriptionStore(clinic);
     store = MedicalHistoryStore(prescriptions);
     clinic.addDoctor(const Doctor(id: doctor, name: 'Dr. Test', specialty: 'General Practice'));
+    clinic.verifyDoctor(doctor); // unverified doctors cannot be booked
   });
 
   test('a patient can save and read their own history', () {

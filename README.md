@@ -10,8 +10,8 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 
 - Sign up and log in with email and password
 - Browse doctors, search by name or specialty, and filter by availability this week
-- Request a 20-minute appointment with an optional note
-- View appointments and cancel requests that haven't been approved yet
+- Request a 20-minute appointment with an optional visit type and note, and review it before sending
+- View appointments, cancel a pending request, or cancel an approved appointment by giving a reason
 - Grant or revoke a doctor's access to prescriptions and medical history
 - Log doses as taken or missed
 - View and update medical history (allergies, conditions, surgeries, current medicines)
@@ -21,7 +21,7 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 **Doctors**
 
 - Sign up with a specialty and medical license number
-- Approve or reject appointment requests
+- Approve appointment requests, or reject them with a reason the patient can see
 - Open or close one-hour slots, up to 7 days ahead
 - View patients who have granted access
 - Add, edit, and remove medications, with a full version history
@@ -32,7 +32,9 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 - Only verified doctors with a patient's access can change prescriptions.
 - Patients can only grant access to doctors they have an approved appointment with.
 - Patients must leave a one-hour gap between appointments with different doctors.
-- Approved appointments cannot be cancelled.
+- Once a request is approved, only the patient can cancel it, and must give a reason. Doctors cannot cancel approved appointments.
+- A patient can have only one upcoming appointment (pending or approved) with the same doctor, and cannot book the same doctor twice on the same day. A visit that has already passed no longer counts as upcoming.
+- Only verified doctors can receive bookings. Unverified doctors appear greyed out in the directory.
 - Medical history can only be changed by the patient.
 - A doctor keeps access to a patient's prescription until the patient removes it.
 - Editing a medication sets the patient's remaining doses to the number the doctor enters.

@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/clinic_store.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
+import '../widgets/reason_dialog.dart';
 import 'login_screen.dart';
 import 'prescriptions_screen.dart';
 
@@ -85,18 +86,37 @@ class _RequestsTab extends StatefulWidget {
 }
 
 class _RequestsTabState extends State<_RequestsTab> {
-  void _act(Appointment a, {required bool approve}) {
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _approve(Appointment a) {
     try {
-      if (approve) {
-        clinicStore.approveAppointment(a.id, widget.doctorId);
-      } else {
-        clinicStore.rejectAppointment(a.id, widget.doctorId);
-      }
+      clinicStore.approveAppointment(a.id, widget.doctorId);
       setState(() {});
     } on BookingException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      _showError(e.message);
+    }
+  }
+
+  // Rejecting needs a reason, which the patient sees.
+  Future<void> _reject(Appointment a) async {
+    final reason = await askForReason(
+      context,
+      title: 'Reject this request?',
+      message: 'The patient will see your reason.',
+      options: kDoctorRejectReasons,
+      confirmLabel: 'Reject request',
+    );
+    if (reason == null || !mounted) return;
+
+    try {
+      clinicStore.rejectAppointment(a.id, widget.doctorId, reason: reason);
+      setState(() {});
+    } on BookingException catch (e) {
+      _showError(e.message);
     }
   }
 
@@ -110,7 +130,7 @@ class _RequestsTabState extends State<_RequestsTab> {
     );
   }
 
-  Widget _requestCard(Appointment a, {required bool isPending}) {
+  Widget _requestCard(Appointment a) {
     final name = a.patientName.isEmpty ? 'Patient' : a.patientName;
 
     return Container(
@@ -132,28 +152,32 @@ class _RequestsTabState extends State<_RequestsTab> {
             '${formatDay(a.start)} • ${formatSlot(a.start)}',
             style: TextStyle(color: Colors.grey[800]),
           ),
+          if (a.visitType.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('Visit type: ${a.visitType}', style: TextStyle(color: Colors.grey[700])),
+          ],
           if (a.note.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text('Note: ${a.note}', style: TextStyle(color: Colors.grey[700])),
           ],
-          if (isPending) ...[
+          if (a.status == AppointmentStatus.pending) ...[
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
-                  onPressed: () => _act(a, approve: false),
+                  onPressed: () => _reject(a),
                   child: const Text('Reject'),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () => _act(a, approve: true),
+                  onPressed: () => _approve(a),
                   child: const Text('Approve'),
                 ),
               ],
             ),
           ],
-          if (!isPending)
+          if (a.status == AppointmentStatus.approved)
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
@@ -161,6 +185,20 @@ class _RequestsTabState extends State<_RequestsTab> {
                 style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
               ),
             ),
+          if (a.status == AppointmentStatus.cancelled) ...[
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Cancelled by the patient',
+                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              a.reason.isEmpty ? 'No reason given.' : 'Reason: ${a.reason}',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+          ],
         ],
       ),
     );
@@ -169,12 +207,17 @@ class _RequestsTabState extends State<_RequestsTab> {
   @override
   Widget build(BuildContext context) {
     final all = clinicStore.appointmentsForDoctor(widget.doctorId);
+    final now = DateTime.now();
     final pending =
         all.where((a) => a.status == AppointmentStatus.pending).toList();
     final approved =
         all.where((a) => a.status == AppointmentStatus.approved).toList();
+    // Cancelled visits that have not happened yet, so the doctor sees why a slot is free.
+    final cancelled = all
+        .where((a) => a.status == AppointmentStatus.cancelled && a.end.isAfter(now))
+        .toList();
 
-    if (pending.isEmpty && approved.isEmpty) {
+    if (pending.isEmpty && approved.isEmpty && cancelled.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),
@@ -191,11 +234,15 @@ class _RequestsTabState extends State<_RequestsTab> {
       children: [
         if (pending.isNotEmpty) ...[
           _sectionTitle('Pending approval'),
-          for (final a in pending) _requestCard(a, isPending: true),
+          for (final a in pending) _requestCard(a),
         ],
         if (approved.isNotEmpty) ...[
           _sectionTitle('Approved'),
-          for (final a in approved) _requestCard(a, isPending: false),
+          for (final a in approved) _requestCard(a),
+        ],
+        if (cancelled.isNotEmpty) ...[
+          _sectionTitle('Cancelled by patients'),
+          for (final a in cancelled) _requestCard(a),
         ],
       ],
     );

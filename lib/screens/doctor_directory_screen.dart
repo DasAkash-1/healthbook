@@ -17,11 +17,16 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final doctors = clinicStore.searchDoctors(
+    final found = clinicStore.searchDoctors(
       query: _query,
       specialty: _specialty,
       availableOnly: _availableOnly,
     );
+    // Verified doctors first. Doctors still waiting for verification are greyed out.
+    final doctors = [
+      ...found.where((d) => clinicStore.isVerified(d.id)),
+      ...found.where((d) => !clinicStore.isVerified(d.id)),
+    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -92,21 +97,36 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
                       itemBuilder: (context, i) {
                         final doctor = doctors[i];
+                        final verified = clinicStore.isVerified(doctor.id);
                         return ListTile(
-                          tileColor: const Color(0xFFF4F7FB),
+                          enabled: verified,
+                          tileColor: verified
+                              ? const Color(0xFFF4F7FB)
+                              : Colors.grey.shade100,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFDCE6FF),
-                            child: Icon(Icons.person, color: Color(0xFF102A66)),
+                          leading: CircleAvatar(
+                            backgroundColor: verified
+                                ? const Color(0xFFDCE6FF)
+                                : Colors.grey.shade300,
+                            child: Icon(
+                              Icons.person,
+                              color: verified
+                                  ? const Color(0xFF102A66)
+                                  : Colors.grey,
+                            ),
                           ),
                           title: Text(
                             doctor.name,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text(doctor.specialty),
-                          trailing: const Icon(Icons.chevron_right),
+                          subtitle: Text(
+                            verified
+                                ? doctor.specialty
+                                : '${doctor.specialty} • Verification pending',
+                          ),
+                          trailing: verified ? const Icon(Icons.chevron_right) : null,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
