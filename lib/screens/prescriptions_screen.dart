@@ -11,6 +11,7 @@ import 'medical_history_screen.dart';
 import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
 import 'test_results_screen.dart';
+import '../utils/app_colors.dart';
 
 // Shared by the patient and by a doctor with access.
 class PrescriptionsScreen extends StatefulWidget {
@@ -98,7 +99,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
             const SizedBox(height: 8),
             Text('Uploaded On: ${formatDateTime(record.date)}'),
             const SizedBox(height: 8),
-            Text('File Path:\n${record.externalFilePath ?? 'N/A'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            Text('File Path:\n${record.externalFilePath ?? 'N/A'}', style: const TextStyle(color: kTextMuted, fontSize: 13)),
           ],
         ),
         actions: [
@@ -155,7 +156,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+            child: const Text('Remove', style: TextStyle(color: kTextDanger)),
           ),
         ],
       ),
@@ -231,7 +232,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                 OutlinedButton.icon(
                   onPressed: () => _removeMedication(m),
                   icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                  label: const Text('Remove', style: TextStyle(color: Colors.red)),
+                  label: const Text('Remove', style: TextStyle(color: kTextDanger)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
@@ -264,12 +265,12 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
+                  color: Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   'External Prescription',
-                  style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: kTextWarning, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
               const Spacer(),
@@ -288,7 +289,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           const SizedBox(height: 4),
           Text(
             'Uploaded on ${formatDateTime(record.date)}',
-            style: TextStyle(color: Colors.grey[700], fontSize: 12),
+            style: TextStyle(color: Colors.grey[700], fontSize: 13),
           ),
           const SizedBox(height: 10),
           Align(
@@ -415,7 +416,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           const SizedBox(height: 8),
           Text(
             'Upload previous prescriptions from doctors outside HealthBook so your current doctor can review them.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: const TextStyle(color: kTextMuted, fontSize: 14),
           ),
           const SizedBox(height: 16),
         ],
@@ -444,7 +445,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                     ? 'No medications prescribed yet. Your doctor can add them after you grant access.'
                     : 'No medications prescribed yet. Click "New Prescription" below.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600]),
+                style: const TextStyle(color: kTextMuted),
               ),
             ),
           )

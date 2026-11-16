@@ -6,9 +6,11 @@ import '../services/auth_service.dart';
 import '../services/clinic_store.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
+import '../widgets/approval_note_dialog.dart';
 import '../widgets/reason_dialog.dart';
 import 'login_screen.dart';
 import 'prescriptions_screen.dart';
+import '../utils/app_colors.dart';
 
 // Hours a doctor can open, as start times (08:00 to 16:00).
 const int _firstHour = 8;
@@ -50,7 +52,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
         onTap: (i) => setState(() => _currentIndex = i),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF102A66),
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: kTextMuted,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.inbox_outlined),
@@ -92,9 +94,17 @@ class _RequestsTabState extends State<_RequestsTab> {
     );
   }
 
-  void _approve(Appointment a) {
+  // The doctor can add an optional note, for example "bring your previous reports".
+  Future<void> _approve(Appointment a) async {
+    final note = await askForApprovalNote(
+      context,
+      patientName: a.patientName.isEmpty ? 'The patient' : a.patientName,
+      when: '${formatDay(a.start)} • ${formatSlot(a.start)}',
+    );
+    if (note == null || !mounted) return;
+
     try {
-      clinicStore.approveAppointment(a.id, widget.doctorId);
+      clinicStore.approveAppointment(a.id, widget.doctorId, note: note);
       setState(() {});
     } on BookingException catch (e) {
       _showError(e.message);
@@ -177,20 +187,28 @@ class _RequestsTabState extends State<_RequestsTab> {
               ],
             ),
           ],
-          if (a.status == AppointmentStatus.approved)
+          if (a.status == AppointmentStatus.approved) ...[
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
                 'Approved',
-                style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                style: TextStyle(color: kTextSuccess, fontWeight: FontWeight.w600),
               ),
             ),
+            if (a.approvalNote.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Your note: ${a.approvalNote}',
+                style: const TextStyle(color: kTextMuted),
+              ),
+            ],
+          ],
           if (a.status == AppointmentStatus.cancelled) ...[
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
                 'Cancelled by the patient',
-                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+                style: TextStyle(color: kTextMuted, fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(height: 4),
@@ -199,6 +217,78 @@ class _RequestsTabState extends State<_RequestsTab> {
               style: TextStyle(color: Colors.grey[700]),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String number, String label) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            number,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF102A66),
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF102A66)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Today's visits, requests waiting for an answer, and the next visit.
+  Widget _summaryCard() {
+    final summary = clinicStore.summaryForDoctor(widget.doctorId);
+    final next = summary.nextVisit;
+    final nextText = next == null
+        ? 'No more visits today.'
+        : 'Next: ${formatSlot(next.start)} with '
+            '${next.patientName.isEmpty ? 'a patient' : next.patientName}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDCE6FF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Today',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Color(0xFF102A66),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _stat(
+                '${summary.visitsToday}',
+                summary.visitsToday == 1 ? 'visit today' : 'visits today',
+              ),
+              _stat(
+                '${summary.pendingRequests}',
+                summary.pendingRequests == 1 ? 'request waiting' : 'requests waiting',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            nextText,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF102A66)),
+          ),
         ],
       ),
     );
@@ -216,33 +306,34 @@ class _RequestsTabState extends State<_RequestsTab> {
     final cancelled = all
         .where((a) => a.status == AppointmentStatus.cancelled && a.end.isAfter(now))
         .toList();
-
-    if (pending.isEmpty && approved.isEmpty && cancelled.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text(
-            'No requests yet. Patients who book with you will appear here.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
+    final nothingYet = pending.isEmpty && approved.isEmpty && cancelled.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        if (pending.isNotEmpty) ...[
-          _sectionTitle('Pending approval'),
-          for (final a in pending) _requestCard(a),
-        ],
-        if (approved.isNotEmpty) ...[
-          _sectionTitle('Approved'),
-          for (final a in approved) _requestCard(a),
-        ],
-        if (cancelled.isNotEmpty) ...[
-          _sectionTitle('Cancelled by patients'),
-          for (final a in cancelled) _requestCard(a),
+        _summaryCard(),
+        if (nothingYet)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text(
+              'No requests yet. Open your hours in the Schedule tab so patients '
+              'can book, and their requests will appear here.',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else ...[
+          if (pending.isNotEmpty) ...[
+            _sectionTitle('Pending approval'),
+            for (final a in pending) _requestCard(a),
+          ],
+          if (approved.isNotEmpty) ...[
+            _sectionTitle('Approved'),
+            for (final a in approved) _requestCard(a),
+          ],
+          if (cancelled.isNotEmpty) ...[
+            _sectionTitle('Cancelled by patients'),
+            for (final a in cancelled) _requestCard(a),
+          ],
         ],
       ],
     );
@@ -393,7 +484,7 @@ class _PatientsTabState extends State<_PatientsTab> {
         child: Padding(
           padding: EdgeInsets.all(32),
           child: Text(
-            'No patients have shared their prescriptions with you yet.',
+            'No patients have shared their prescriptions with you yet. They appear here after an appointment with you is approved and they give you access.',
             textAlign: TextAlign.center,
           ),
         ),
@@ -492,7 +583,10 @@ class _ProfileTabState extends State<_ProfileTab> {
               ),
               child: Text(
                 verified ? 'Verified doctor' : 'Verification pending',
-                style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: verified ? kTextSuccess : kTextWarning,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             if (kDebugMode && !verified) ...[

@@ -90,7 +90,15 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
             ),
             Expanded(
               child: doctors.isEmpty
-                  ? const Center(child: Text('No doctors match your search.'))
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text(
+                          'No doctors match your search. Try a different name, or clear the filters.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: doctors.length,

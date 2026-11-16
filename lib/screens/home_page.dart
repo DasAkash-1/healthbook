@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/clinic_store.dart';
 import '../services/medical_history_store.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
@@ -13,6 +14,7 @@ import 'medical_history_screen.dart';
 import 'my_appointments_screen.dart';
 import 'prescriptions_screen.dart';
 import 'test_results_screen.dart';
+import '../utils/app_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -122,6 +124,70 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // How much bigger than normal the phone's text setting is (1.0 = normal), capped at 1.6.
+  double _textScale(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return scale < 1.0 ? 1.0 : (scale > 1.6 ? 1.6 : scale);
+  }
+
+  // Shows the patient's next approved appointment, if there is one.
+  Widget _upcomingBanner() {
+    final patientId = authService.currentUser?.id ?? '';
+    final next = clinicStore.nextApprovedAppointmentFor(patientId);
+    if (next == null) return const SizedBox.shrink();
+
+    final doctor = clinicStore.doctorById(next.doctorId);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: const Color(0xFFDCE6FF),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MyAppointmentsScreen()),
+          ).then((_) {
+            if (mounted) setState(() {});
+          }),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.event_available, color: Color(0xFF102A66), size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Next appointment',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF102A66)),
+                      ),
+                      Text(
+                        doctor?.name ?? 'Your doctor',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0D1B2A),
+                        ),
+                      ),
+                      Text(
+                        '${formatDay(next.start)} • ${formatSlot(next.start)}',
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF0D1B2A)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFF102A66)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _plural(int n, String one, String many) => n == 1 ? '$n $one' : '$n $many';
 
   // Short lines shown under each tile on the Records tab.
@@ -141,7 +207,7 @@ class _HomePageState extends State<HomePage> {
 
   String _testResultsSummary(String patientId) {
     final tests = prescriptionStore.recommendedTestsFor(patientId);
-    if (tests.isEmpty) return 'No test results added yet.';
+    if (tests.isEmpty) return 'No tests recommended yet.';
 
     final uploaded = tests.where((t) => t.status == 'Result Uploaded').length;
     return '${_plural(tests.length, 'test', 'tests')} • '
@@ -270,6 +336,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 16),
+              _upcomingBanner(),
 
               // Hero Illustration Banner Placeholder
               Container(
@@ -309,7 +376,7 @@ class _HomePageState extends State<HomePage> {
                                 Text(
                                   'Manage records & appointments securely.',
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     color: Colors.grey[700],
                                   ),
                                 ),
@@ -342,11 +409,12 @@ class _HomePageState extends State<HomePage> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _dashboardItems.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 14,
                   mainAxisSpacing: 14,
-                  childAspectRatio: 1.35,
+                  // The tiles grow with the phone's text size, so large text is not cut off.
+                  mainAxisExtent: 116 * _textScale(context),
                 ),
                 itemBuilder: (context, index) {
                   final item = _dashboardItems[index];
@@ -386,9 +454,9 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 2),
                         Text(
                           item['subtitle'] as String,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: kTextMuted,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -414,7 +482,7 @@ class _HomePageState extends State<HomePage> {
         },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF102A66),
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: kTextMuted,
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [

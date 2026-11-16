@@ -16,12 +16,15 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 - Log doses as taken or missed
 - View and update medical history (allergies, conditions, surgeries, current medicines)
 - Upload outside prescriptions (PDF) and test result files
+- See your next approved appointment on the home screen
 - Calculate BMI
 
 **Doctors**
 
 - Sign up with a specialty and medical license number
-- Approve appointment requests, or reject them with a reason the patient can see
+- Approve appointment requests (with an optional note for the patient), or reject them with a reason the patient can see
+- See today's visits, waiting requests and the next visit at the top of the Requests tab
+- Get a warning when a medicine looks like an allergy in the patient's history (text match only, so it can miss related medicines)
 - Open or close one-hour slots, up to 7 days ahead
 - View patients who have granted access
 - Add, edit, and remove medications, with a full version history
@@ -117,6 +120,7 @@ The stores in `services/` are currently in memory. Each one has the same methods
 - Prescriptions with access control and version history
 - Dose logging
 - Patients can upload outside prescriptions (PDF) and test results (only the file name and path are kept for now)
+- Text is never smaller than 12, and small text uses the colours in `lib/utils/app_colors.dart` so it stays readable
 - Medical history at registration and later
 - BMI calculator
 - Debug demo accounts

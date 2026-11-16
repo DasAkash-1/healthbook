@@ -1,5 +1,8 @@
 import '../models/app_models.dart';
 
+// Longest note a doctor can add when approving a request.
+const int kMaxApprovalNoteLength = 300;
+
 class BookingException implements Exception {
   final String message;
   BookingException(this.message);
@@ -318,8 +321,13 @@ class ClinicStore {
     return list;
   }
 
-  // TODO(backend): save the new status in the database.
-  void approveAppointment(String appointmentId, String doctorId) {
+  // The doctor can add a short note for the patient, for example "bring your reports".
+  // TODO(backend): save the new status and note in the database.
+  void approveAppointment(
+    String appointmentId,
+    String doctorId, {
+    String note = '',
+  }) {
     final a = _findAppointment(appointmentId);
     if (a == null || a.doctorId != doctorId) {
       throw BookingException('Appointment not found.');
@@ -327,7 +335,14 @@ class ClinicStore {
     if (a.status != AppointmentStatus.pending) {
       throw BookingException('Only pending requests can be approved.');
     }
+    final cleaned = note.trim();
+    if (cleaned.length > kMaxApprovalNoteLength) {
+      throw BookingException(
+        'The note can be at most $kMaxApprovalNoteLength characters.',
+      );
+    }
     a.status = AppointmentStatus.approved;
+    a.approvalNote = cleaned;
   }
 
   // Only pending requests can be rejected, and the doctor must say why.
@@ -354,6 +369,54 @@ class ClinicStore {
     }
     a.status = AppointmentStatus.rejected;
     a.reason = cleaned;
+  }
+
+  // ---------- Summaries ----------
+
+  // The patient's next approved appointment that has not finished yet.
+  Appointment? nextApprovedAppointmentFor(String patientId) {
+    final now = _now();
+    Appointment? next;
+    for (final a in _appointments) {
+      if (a.patientId != patientId ||
+          a.status != AppointmentStatus.approved ||
+          !a.end.isAfter(now)) {
+        continue;
+      }
+      if (next == null || a.start.isBefore(next.start)) next = a;
+    }
+    return next;
+  }
+
+  // Counts for the top of the doctor's Requests tab.
+  DoctorSummary summaryForDoctor(String doctorId) {
+    final now = _now();
+    final today = _dayStart(now);
+    final mine = _appointments.where((a) => a.doctorId == doctorId).toList();
+
+    final approvedToday = mine
+        .where((a) =>
+            a.status == AppointmentStatus.approved && _dayStart(a.start) == today)
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+
+    Appointment? next;
+    for (final a in approvedToday) {
+      if (a.end.isAfter(now)) {
+        next = a;
+        break;
+      }
+    }
+
+    final pending = mine
+        .where((a) => a.status == AppointmentStatus.pending && a.end.isAfter(now))
+        .length;
+
+    return DoctorSummary(
+      visitsToday: approvedToday.length,
+      pendingRequests: pending,
+      nextVisit: next,
+    );
   }
 
   Appointment? _findAppointment(String id) {

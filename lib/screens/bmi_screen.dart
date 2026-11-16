@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/bmi.dart';
+import '../utils/app_colors.dart';
 
 class BmiScreen extends StatefulWidget {
   const BmiScreen({super.key});
@@ -45,6 +46,20 @@ class _BmiScreenState extends State<BmiScreen> {
         return Colors.orange;
       case BmiCategory.obese:
         return Colors.red;
+    }
+  }
+
+  // Darker versions of the category colours, for text on the light tint behind them.
+  Color _textColorFor(BmiCategory category) {
+    switch (category) {
+      case BmiCategory.underweight:
+        return const Color(0xFF0D47A1);
+      case BmiCategory.normal:
+        return kTextSuccess;
+      case BmiCategory.overweight:
+        return kTextWarning;
+      case BmiCategory.obese:
+        return kTextDanger;
     }
   }
 
@@ -102,7 +117,7 @@ class _BmiScreenState extends State<BmiScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: color,
+              color: _textColorFor(result.category),
             ),
           ),
           const SizedBox(height: 16),
@@ -110,7 +125,7 @@ class _BmiScreenState extends State<BmiScreen> {
             'BMI is a general guide. It does not measure body fat or overall health '
             'on its own. Talk to your doctor about your results.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
           ),
         ],
       ),
@@ -153,7 +168,7 @@ class _BmiScreenState extends State<BmiScreen> {
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(color: kTextDanger),
               ),
             if (_result != null) _buildResult(_result!),
           ],
