@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../utils/app_colors.dart';
 
 // Asks the person to pick a reason from [options] and, optionally, add details.
 // Choosing "Other" means they must write the reason themselves.
@@ -96,7 +97,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
                         : Icons.circle_outlined,
                     color: _selected == option
                         ? const Color(0xFF102A66)
-                        : Colors.grey,
+                        : kTextMuted,
                   ),
                   onTap: () => setState(() {
                     _selected = option;
@@ -117,7 +118,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(color: kTextDanger),
                   ),
                 ),
             ],
@@ -133,7 +134,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
           onPressed: _submit,
           child: Text(
             widget.confirmLabel,
-            style: const TextStyle(color: Colors.red),
+            style: const TextStyle(color: kTextDanger),
           ),
         ),
       ],

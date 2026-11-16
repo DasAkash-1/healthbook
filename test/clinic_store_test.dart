@@ -565,6 +565,112 @@ void main() {
     });
   });
 
+  group('Approval note and summaries', () {
+    const patient = 'patient@x.com';
+    late DateTime now;
+    late ClinicStore timed;
+
+    setUp(() {
+      now = DateTime.now();
+      timed = ClinicStore(clock: () => now);
+    });
+
+    test('a doctor can add a note when approving, and it is trimmed', () {
+      final appt = timed.requestAppointment(
+        patientId: patient,
+        doctorId: gp,
+        start: _at(1, 9),
+      );
+      timed.approveAppointment(appt.id, gp, note: '  Bring your reports  ');
+      final saved = timed.appointmentsForPatient(patient).first;
+      expect(saved.status, AppointmentStatus.approved);
+      expect(saved.approvalNote, 'Bring your reports');
+    });
+
+    test('the note is optional', () {
+      final appt = timed.requestAppointment(
+        patientId: patient,
+        doctorId: gp,
+        start: _at(1, 9),
+      );
+      timed.approveAppointment(appt.id, gp);
+      expect(timed.appointmentsForPatient(patient).first.approvalNote, '');
+    });
+
+    test('a note that is too long is rejected and the request stays pending', () {
+      final appt = timed.requestAppointment(
+        patientId: patient,
+        doctorId: gp,
+        start: _at(1, 9),
+      );
+      expect(
+        () => timed.approveAppointment(appt.id, gp, note: 'x' * (kMaxApprovalNoteLength + 1)),
+        throwsA(isA<BookingException>()),
+      );
+      expect(timed.appointmentsForPatient(patient).first.status, AppointmentStatus.pending);
+    });
+
+    test('the patient sees the next approved appointment that has not finished', () {
+      final appt = timed.requestAppointment(
+        patientId: patient,
+        doctorId: gp,
+        start: _at(1, 9),
+      );
+      expect(timed.nextApprovedAppointmentFor(patient), isNull); // still pending
+
+      timed.approveAppointment(appt.id, gp);
+      expect(timed.nextApprovedAppointmentFor(patient)?.id, appt.id);
+
+      now = _at(1, 10); // the visit is over
+      expect(timed.nextApprovedAppointmentFor(patient), isNull);
+    });
+
+    test('the doctor summary counts visits today, waiting requests and the next visit', () {
+      final first = timed.requestAppointment(
+        patientId: patient,
+        patientName: 'Pat One',
+        doctorId: gp,
+        start: _at(1, 9),
+      );
+      final second = timed.requestAppointment(
+        patientId: 'two@x.com',
+        patientName: 'Pat Two',
+        doctorId: gp,
+        start: _at(1, 10),
+      );
+      timed.requestAppointment(
+        patientId: 'three@x.com',
+        doctorId: gp,
+        start: _at(1, 11),
+      );
+      timed.approveAppointment(first.id, gp);
+      timed.approveAppointment(second.id, gp);
+
+      now = _at(1, 8); // the morning of the visits
+      var summary = timed.summaryForDoctor(gp);
+      expect(summary.visitsToday, 2);
+      expect(summary.pendingRequests, 1);
+      expect(summary.nextVisit?.id, first.id);
+
+      now = _at(1, 9).add(const Duration(minutes: 30)); // first visit is over
+      summary = timed.summaryForDoctor(gp);
+      expect(summary.visitsToday, 2);
+      expect(summary.nextVisit?.id, second.id);
+
+      now = _at(1, 12); // everything is over
+      summary = timed.summaryForDoctor(gp);
+      expect(summary.nextVisit, isNull);
+      expect(summary.pendingRequests, 0);
+    });
+
+    test('a doctor with no visits has an empty summary', () {
+      final summary = timed.summaryForDoctor(gp);
+      expect(summary.visitsToday, 0);
+      expect(summary.pendingRequests, 0);
+      expect(summary.nextVisit, isNull);
+    });
+  });
+
   group('Validators', () {
     test('email must look valid', () {
       expect(Validators.email('a@b.co'), isNull);

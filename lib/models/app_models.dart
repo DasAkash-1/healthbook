@@ -74,6 +74,9 @@ class Appointment {
   // Empty when no reason was given (a pending request can be cancelled without one).
   String reason;
 
+  // Optional note from the doctor when approving, for example "bring your reports".
+  String approvalNote;
+
   Appointment({
     required this.id,
     required this.patientId,
@@ -84,6 +87,7 @@ class Appointment {
     required this.note,
     this.status = AppointmentStatus.pending,
     this.reason = '',
+    this.approvalNote = '',
   });
 
   DateTime get end => start.add(kSlotLength);
@@ -95,4 +99,17 @@ class Appointment {
 
   // An active booking whose visit has not finished yet.
   bool isUpcomingAt(DateTime now) => isActive && end.isAfter(now);
+}
+
+// What the doctor sees at the top of the Requests tab.
+class DoctorSummary {
+  final int visitsToday; // approved visits today, including ones already finished
+  final int pendingRequests; // requests waiting for an answer (visit not over yet)
+  final Appointment? nextVisit; // the next approved visit today, if there is one
+
+  const DoctorSummary({
+    required this.visitsToday,
+    required this.pendingRequests,
+    this.nextVisit,
+  });
 }

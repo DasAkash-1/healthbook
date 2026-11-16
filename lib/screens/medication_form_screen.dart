@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/prescription_models.dart';
+import '../services/medical_history_store.dart';
 import '../services/prescription_store.dart';
+import '../utils/allergy_check.dart';
+import '../widgets/allergy_warning_dialog.dart';
 
 // Doctor only. Adds a new medication or edits an existing one.
 class MedicationFormScreen extends StatefulWidget {
@@ -47,7 +50,18 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     super.dispose();
   }
 
-  void _save() {
+  // The doctor can only read the allergy list while the patient's access is on.
+  List<AllergyWarning> _allergyWarnings(String medicineName) {
+    try {
+      final history = medicalHistoryStore.historyFor(widget.patientId, widget.doctorId);
+      if (history == null) return [];
+      return allergyWarningsFor([medicineName], history.allergies);
+    } on MedicalHistoryException {
+      return [];
+    }
+  }
+
+  Future<void> _save() async {
     final remaining = int.tryParse(_remainingCtrl.text.trim());
     if (remaining == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -56,8 +70,18 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
       return;
     }
 
+    // Warn about a possible allergy for a new medicine or a changed name.
+    final existing = widget.existing;
+    final name = _nameCtrl.text.trim();
+    if (existing == null || existing.name != name) {
+      final warnings = _allergyWarnings(name);
+      if (warnings.isNotEmpty) {
+        final goAhead = await confirmDespiteAllergies(context, warnings);
+        if (!goAhead || !mounted) return;
+      }
+    }
+
     try {
-      final existing = widget.existing;
       if (existing == null) {
         prescriptionStore.addMedication(
           patientId: widget.patientId,

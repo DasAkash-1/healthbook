@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/prescription_models.dart';
+import '../services/medical_history_store.dart';
 import '../services/prescription_store.dart';
+import '../utils/allergy_check.dart';
+import '../widgets/allergy_warning_dialog.dart';
+import '../utils/app_colors.dart';
 
 class CreatePrescriptionScreen extends StatefulWidget {
   final String patientId;
@@ -52,7 +56,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     // Validate medications
     final medsList = <Medication>[];
     for (int i = 0; i < _medications.length; i++) {
@@ -97,6 +101,13 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
       return;
     }
 
+    // Warn if a medicine looks like something the patient is allergic to.
+    final warnings = _allergyWarnings(medsList);
+    if (warnings.isNotEmpty) {
+      final goAhead = await confirmDespiteAllergies(context, warnings);
+      if (!goAhead || !mounted) return;
+    }
+
     try {
       prescriptionStore.createPrescription(
         patientId: widget.patientId,
@@ -107,6 +118,17 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
       Navigator.pop(context);
     } on PrescriptionException catch (e) {
       _showError(e.message);
+    }
+  }
+
+  // The doctor can only read the allergy list while the patient's access is on.
+  List<AllergyWarning> _allergyWarnings(List<Medication> meds) {
+    try {
+      final history = medicalHistoryStore.historyFor(widget.patientId, widget.doctorId);
+      if (history == null) return [];
+      return allergyWarningsFor(meds.map((m) => m.name), history.allergies);
+    } on MedicalHistoryException {
+      return [];
     }
   }
 
@@ -157,7 +179,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
             ),
             const SizedBox(height: 8),
             if (_medications.isEmpty)
-              Text('No medications added. Click "Add Medicine" above.', style: TextStyle(color: Colors.grey[600])),
+              Text('No medications added. Click "Add Medicine" above.', style: const TextStyle(color: kTextMuted)),
             for (int i = 0; i < _medications.length; i++)
               _buildMedicationCard(i),
 
@@ -180,7 +202,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
             ),
             const SizedBox(height: 8),
             if (_tests.isEmpty)
-              Text('No tests recommended. Click "Add Test" above.', style: TextStyle(color: Colors.grey[600])),
+              Text('No tests recommended. Click "Add Test" above.', style: const TextStyle(color: kTextMuted)),
             for (int i = 0; i < _tests.length; i++)
               _buildTestCard(i),
 

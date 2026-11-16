@@ -79,7 +79,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               'The doctor sees this before approving or rejecting. You can '
               'cancel the request until it is approved. After that you will '
               'need to give a reason.',
-              style: TextStyle(color: Colors.grey[700], fontSize: 13),
+              style: TextStyle(color: Colors.grey[700], fontSize: 14),
             ),
           ],
         ),
@@ -196,7 +196,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               const SizedBox(height: 10),
               if (slots.isEmpty)
                 Text(
-                  'No open slots on this day.',
+                  'No open slots on this day. Try another day.',
                   style: TextStyle(color: Colors.grey[700]),
                 )
               else
@@ -252,7 +252,7 @@ class _BookingDialogState extends State<_BookingDialog> {
           children: [
             Text(
               'Both are optional. Your doctor sees them before deciding.',
-              style: TextStyle(color: Colors.grey[700], fontSize: 13),
+              style: TextStyle(color: Colors.grey[700], fontSize: 14),
             ),
             const SizedBox(height: 12),
             const Text(
