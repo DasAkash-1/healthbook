@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
 import '../utils/app_colors.dart';
+import 'file_viewer_screen.dart';
 
 class TestResultsScreen extends StatefulWidget {
   final String patientId;
@@ -60,29 +61,16 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
   }
 
   void _viewResult(RecommendedTest test) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(test.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Status: ${test.status}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('File Name: ${test.uploadedFileName ?? 'N/A'}'),
-            const SizedBox(height: 4),
-            Text('Uploaded At: ${test.uploadedAt != null ? formatDateTime(test.uploadedAt!) : 'N/A'}'),
-            const SizedBox(height: 8),
-            Text('File Path:\n${test.uploadedFilePath ?? 'N/A'}', style: const TextStyle(color: kTextMuted, fontSize: 13)),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FileViewerScreen(
+          title: test.uploadedFileName ?? test.name,
+          path: test.uploadedFilePath ?? '',
+          subtitle: test.uploadedAt != null
+              ? '${test.name} • uploaded ${formatDateTime(test.uploadedAt!)}'
+              : test.name,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }

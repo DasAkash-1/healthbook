@@ -12,6 +12,7 @@ import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
 import 'test_results_screen.dart';
 import '../utils/app_colors.dart';
+import 'file_viewer_screen.dart';
 
 // Shared by the patient and by a doctor with access.
 class PrescriptionsScreen extends StatefulWidget {
@@ -87,27 +88,14 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   }
 
   void _viewExternal(PrescriptionRecord record) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('External Prescription'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('File Name: ${record.externalFileName ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('Uploaded On: ${formatDateTime(record.date)}'),
-            const SizedBox(height: 8),
-            Text('File Path:\n${record.externalFilePath ?? 'N/A'}', style: const TextStyle(color: kTextMuted, fontSize: 13)),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FileViewerScreen(
+          title: record.externalFileName ?? 'Prescription PDF',
+          path: record.externalFilePath ?? '',
+          subtitle: 'Uploaded ${formatDateTime(record.date)}',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
