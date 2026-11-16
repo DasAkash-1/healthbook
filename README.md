@@ -2,7 +2,32 @@
 
 Healthbook is a Flutter app for patients and doctors. Patients can find doctors, book 20-minute appointments, manage their prescriptions and medical history, and calculate their BMI. Doctors manage their schedule, approve appointment requests, and update prescriptions for patients who have granted them access.
 
-The app is built with Flutter and Dart for Android. Data is currently stored in memory, so it resets when the app restarts. Firebase will be added later.
+The app is built with Flutter and Dart for Android. **There is no backend yet.** Everything is kept in memory on the phone, so it resets when the app restarts. Firebase will be added later by someone else, and this README tells them where to start.
+
+## What to expect
+
+Read this first, so nothing surprises you.
+
+- **It is a working prototype of the app side.** The screens, the booking and access rules, and the tests are in place. Nothing is sent to a server.
+- **Data lives in memory.** Closing the app erases accounts, appointments, prescriptions and uploads. Debug builds create the two demo accounts again each time they start.
+- **Nothing is shared between phones.** A patient on one phone and a doctor on another cannot see each other's data. To see both sides, log out and log in again on the same device.
+- **Release builds have no demo accounts**, and new doctors cannot be verified (there is no verification process yet), so they cannot take bookings. See [Known limitations](#known-limitations).
+- **The rules are real.** Booking, cancelling, access and prescription rules are enforced in `lib/services/` and covered by the tests in `test/`.
+- **Android only.** It has been tried on an Android 16 phone and on emulators. iOS, web and desktop are not supported.
+- **It is not medical software.** The allergy warning is a simple name match and there are no dose or interaction checks. Nothing in the app is medical advice.
+
+## A five-minute tour
+
+Run the app in debug mode (`flutter run`). Button names are approximate, since screens can change.
+
+1. On the login screen, tap **Demo patient**.
+2. The home screen shows a **Next appointment** banner for tomorrow at 09:00 with the demo doctor. Tap it to open Appointments.
+3. Open **Doctors**. Pick a doctor (greyed-out doctors are not verified yet), choose a day and a slot, pick a visit type and add a note, then review and send the request. It appears as pending. Cancel it, which needs no reason.
+4. On the **Records** tab, open **Medical History** and add an allergy, for example "Penicillin".
+5. Open **Prescriptions** and give the demo doctor access to your prescriptions and medical history. The demo doctor can be given access because the two already have an approved appointment.
+6. Log out, then tap **Demo doctor**. The Requests tab shows a **Today** summary. Approve a request with a note, or reject one with a reason.
+7. On the Patients tab, open the demo patient and add a prescription with "Penicillin V". You get an allergy warning. Go back, change it, then save. Try editing and removing a medication.
+8. Log back in as the patient. Your prescriptions are listed and you can mark doses as taken or missed. Upload a PDF as an outside prescription, then tap **View PDF** to open it in the app.
 
 ## Features
 
@@ -12,11 +37,11 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 - Browse doctors, search by name or specialty, and filter by availability this week
 - Request a 20-minute appointment with an optional visit type and note, and review it before sending
 - View appointments, cancel a pending request, or cancel an approved appointment by giving a reason
+- See the doctor's note on an approved appointment, and your next approved appointment on the home screen
 - Grant or revoke a doctor's access to prescriptions and medical history
 - Log doses as taken or missed
 - View and update medical history (allergies, conditions, surgeries, current medicines)
-- Upload outside prescriptions (PDF) and test result files
-- See your next approved appointment on the home screen
+- Upload outside prescriptions (PDF) and test result files (PDF, JPG, PNG), and open them in the app
 - Calculate BMI
 
 **Doctors**
@@ -24,23 +49,58 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 - Sign up with a specialty and medical license number
 - Approve appointment requests (with an optional note for the patient), or reject them with a reason the patient can see
 - See today's visits, waiting requests and the next visit at the top of the Requests tab
-- Get a warning when a medicine looks like an allergy in the patient's history (text match only, so it can miss related medicines)
+- See why a patient cancelled an approved appointment
 - Open or close one-hour slots, up to 7 days ahead
 - View patients who have granted access
 - Add, edit, and remove medications, with a full version history
+- Get a warning when a medicine looks like an allergy in the patient's history (text match only, so it can miss related medicines)
 - Read medical history, with the patient's access
 
-**Business rules**
+## Business rules
 
 - Only verified doctors with a patient's access can change prescriptions.
-- Patients can only grant access to doctors they have an approved appointment with.
-- Patients must leave a one-hour gap between appointments with different doctors.
-- Once a request is approved, only the patient can cancel it, and must give a reason. Doctors cannot cancel approved appointments.
-- A patient can have only one upcoming appointment (pending or approved) with the same doctor, and cannot book the same doctor twice on the same day. A visit that has already passed no longer counts as upcoming.
-- Only verified doctors can receive bookings. Unverified doctors appear greyed out in the directory.
-- Medical history can only be changed by the patient.
 - A doctor keeps access to a patient's prescription until the patient removes it.
 - Editing a medication sets the patient's remaining doses to the number the doctor enters.
+- Medications have 1 to 4 doses a day, a name and a dose. Remaining doses cannot be negative.
+- Patients can only grant access to doctors they have an approved appointment with.
+- Medical history can only be changed by the patient.
+- Only verified doctors can receive bookings. Unverified doctors appear greyed out in the directory and show no slots.
+- Bookings are for 20-minute slots inside hours the doctor has opened, up to 7 days ahead.
+- Patients must leave a one-hour gap between appointments with different doctors.
+- A patient can have only one upcoming appointment (pending or approved) with the same doctor, and cannot book the same doctor twice on the same day. A visit that has already passed no longer counts as upcoming. Cancelled or rejected requests do not count.
+- A pending request can be cancelled by the patient without a reason, or rejected by the doctor, who must give a reason.
+- Once a request is approved, only the patient can cancel it, and must give a reason. Doctors cannot cancel approved appointments. An appointment that has already started cannot be cancelled.
+- An approval note can be up to 300 characters.
+
+## Known limitations
+
+- **No backend.** Everything is in memory and resets when the app restarts.
+- **One device only.** Nothing is shared between phones.
+- **Uploaded files only exist on the phone that picked them.** The app keeps the file's path, not the file. The viewer shows a message if the file is gone, for example when the phone cleared its cache, or when a doctor on another phone tries to open it.
+- **Only PDFs and PNG or JPG images can be opened in the app.** The pickers do not offer other file types.
+- **Login is not secure.** Accounts live in memory. There is no password reset and no email check.
+- **Doctor verification is a placeholder.** In debug builds a button on the doctor's profile verifies the doctor. Release builds have no way to do it, so new doctors cannot be booked until the backend exists.
+- **Allergy warnings are a text match.** They miss related medicines, for example amoxicillin for a penicillin allergy, and they only work while the patient's access is on.
+- **No reminders or notifications.** The app does not remind anyone about doses or appointments.
+- **Times use the phone's clock and time zone.** A pending request whose time has passed stays pending, because there is no expiry yet.
+- **Phone number and date of birth are collected at sign-up but not saved.**
+- **Placeholder app setup.** The app icon is the Flutter default, the package name is `com.example.healthbook_test`, and release builds are signed with the debug key.
+- **Large text is only partly tested.** Text is never smaller than 12 and the home tiles grow with the phone's text size setting, but not every screen has been tried at the largest sizes.
+- **`flutter analyze` shows info messages** saying `package:flutter/material.dart` is deprecated. They are expected until the app moves to `material_ui`, which changes every screen and should be agreed with the team first.
+
+## For the backend developer
+
+Start here when Firebase (or another backend) is added.
+
+- **Find the places to change** with `git grep "TODO(backend)" -- lib`. Each marks a spot where data is read or saved, or a rule that must also be enforced on the server.
+- **The stores are the swap point.** Screens use four global objects: `authService`, `clinicStore`, `prescriptionStore` and `medicalHistoryStore`. Replace each with a class that talks to the backend, and keep the method names, the arguments, and the exception messages the same.
+- **The stores are synchronous today.** A real backend is asynchronous, so the methods will become `Future`s and the screens that call them will need `await`. Most screen logic stays as it is.
+- **Enforce the rules on the server too**, not only in the app. The list is under Business rules above. The tests in `test/` describe the expected behaviour and are a good checklist.
+- **Add fields that are not stored yet:** phone number and date of birth (collected at sign-up), and the medical history entered at registration.
+- **Files:** upload PDFs and images to file storage and keep the storage link instead of the phone path. `lib/screens/file_viewer_screen.dart` is the one place that opens them.
+- **Doctor verification** (`verifyDoctor`, `unverifyDoctor`) should become a server-side process. The debug-only button on the doctor's profile goes away.
+- **Time:** slots and the booking window use the phone's clock. Use server time and one time zone. `ClinicStore` accepts a clock for tests.
+- **Android:** the main manifest has no internet permission yet (only the debug and profile ones do), and Firebase's Gradle setup has to be added. Read [Android build setup](#android-build-setup) first and do the Gradle work in its own pull request.
 
 ## Getting started
 
@@ -50,6 +110,8 @@ The app is built with Flutter and Dart for Android. Data is currently stored in 
 4. Run the app on an emulator or device: `flutter run`
 
 You need Flutter 3.50.0 or newer (check with `flutter --version`) and JDK 17 or newer. The JDK that comes with Android Studio is fine. On Windows, turn on Developer Mode (run `start ms-settings:developers`), because Flutter needs symlink support to build with plugins.
+
+The PDF viewer (`pdfrx`) bundles the PDFium library, so the first build after adding it can take longer and may need an internet connection. It also makes the app larger. To see by how much, run `flutter build apk --analyze-size`.
 
 ## Android build setup
 
@@ -87,12 +149,13 @@ In debug builds, two demo accounts are created each time the app starts. Use the
 | Patient | demo.patient@healthbook.test | Demo1234 |
 | Doctor  | demo.doctor@healthbook.test  | Demo1234 |
 
-The demo doctor is already verified and has an approved appointment with the demo patient for tomorrow at 09:00. Demo accounts are not created in release builds.
+The demo doctor is already verified and has an approved appointment with the demo patient for tomorrow at 09:00, so the demo patient cannot book the demo doctor again until that visit has passed. Demo accounts are not created in release builds.
 
 ## Testing
 
 Automated tests live in the `test/` folder. Run them with: `flutter test`
-They cover the booking rules, the prescription and access rules, medical history, validators, and BMI calculations.
+
+They cover the booking rules, the prescription and access rules, medical history, validators, the allergy check, file types, BMI calculations, and a start-up check of the app. The screens themselves have no automated tests, so try changes on a device or emulator.
 
 To check code quality, run: `flutter analyze`
 
@@ -104,38 +167,44 @@ lib/
 ├── splash_screen.dart         Splash screen
 ├── models/                    Data types (users, doctors, appointments, prescriptions, medical history)
 ├── services/                  Stores and rules: auth, clinic, prescriptions, medical history
-├── screens/                   All app screens
-├── widgets/                   Shared widgets (medical history form)
-└── utils/                     Validators, formatters, BMI calculation
+├── screens/                   All app screens, including the PDF and image viewer
+├── widgets/                   Shared dialogs and forms (reasons, approval note, allergy warning, medical history)
+└── utils/                     Validators, formatters, BMI, allergy check, file types, text colours
 ```
 
-The stores in `services/` are currently in memory. Each one has the same methods that a Firebase version will need, so the screens won't need to change when the backend is added.
+The stores in `services/` are currently in memory. See [For the backend developer](#for-the-backend-developer) for how to replace them.
 
 ## Current status
 
 **Done**
 
 - Sign-up and login with patient and doctor roles
-- Patient booking flow and doctor schedule and requests
-- Prescriptions with access control and version history
+- Patient booking flow with visit type, note and a review step, and the doctor's schedule and requests
+- Cancellation and rejection reasons, doctor's approval note, and the one-booking-per-doctor rules
+- Doctor's daily summary and the patient's next appointment banner
+- Prescriptions with access control, version history, and edit and remove for doctors
+- Allergy warning when a doctor prescribes a medicine
 - Dose logging
-- Patients can upload outside prescriptions (PDF) and test results (only the file name and path are kept for now)
-- Text is never smaller than 12, and small text uses the colours in `lib/utils/app_colors.dart` so it stays readable
+- Uploading outside prescriptions and test results, and opening them in the app (PDF and images)
 - Medical history at registration and later
 - BMI calculator
+- Text never smaller than 12, and small text uses the colours in `lib/utils/app_colors.dart` so it stays readable
 - Debug demo accounts
 - Automated tests for the rules above
 
 **Not yet built**
 
-- Dose reminders and notifications
+- Dose reminders and notifications (they need a notification package and a change to the Gradle files, so they need the team's approval first)
 - Checkup report
-- Opening uploaded PDFs and images inside the app (for now only the file name and path are shown)
 - Firebase or any other backend
-- Real doctor verification (currently a test-only button in debug builds)
+- Real doctor verification
+- Saving phone number and date of birth
+- App icon, final package name and release signing
 
 ## Contributing
 
 Work in small steps. Each change should pass `flutter analyze` and `flutter test` before it is committed.
 
 Leave the Android Gradle setup alone unless the change is about the Gradle setup (see Android build setup above), and state which device or emulator you tested on in the pull request.
+
+When you add code that reads or saves data, mark the spot with a `TODO(backend)` comment. When you add small text, use the colours in `lib/utils/app_colors.dart`. Keep this README up to date: features, limitations and what is not built yet.
