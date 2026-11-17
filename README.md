@@ -34,7 +34,7 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
 
 **Patients**
 
-- Sign up and log in with email and password
+- Sign up and log in with email and password. A strength bar under the password field goes from red to green as the password gets stronger
 - Browse doctors, search by name or specialty, and filter by availability this week
 - Request a 20-minute appointment with an optional visit type and note, and review it before sending
 - View appointments, cancel a pending request, or cancel an approved appointment by giving a reason
@@ -63,7 +63,8 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
 - Only verified doctors with a patient's access can change prescriptions.
 - A doctor keeps access to a patient's prescription until the patient removes it.
 - Editing a medication sets the patient's remaining doses to the number the doctor enters.
-- Medications have 1 to 4 doses a day, a name and a dose. Remaining doses cannot be negative.
+- Medications have 1 to 4 doses a day, a name and a dose. Remaining doses must be a whole number, not negative. The prescription form never fills in a number the doctor did not type.
+- Passwords need at least 8 characters with an upper case letter, a lower case letter and a number. The strength bar (weak, fair, good, strong) rates length, variety, very common passwords, repeats, runs like 1234, and use of the email name. It only advises; it does not block a password that meets the rules.
 - Patients can only grant access to doctors they have an approved appointment with.
 - Medical history can only be changed by the patient.
 - Only verified doctors can receive bookings. Unverified doctors appear greyed out in the directory and show no slots.
@@ -91,7 +92,6 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
   - Reminders belong to the phone that is logged in as the patient. Because data is not saved yet, they only reflect what is in the app since it was started.
   - There are no reminders for doctors, and no messages that start on the server (for example "your appointment was approved" or "a new request is waiting"). Those need the backend.
 - **Times use the phone's clock and time zone.** A pending request whose time has passed stays pending, because there is no expiry yet.
-- **Phone number and date of birth are collected at sign-up but not saved.**
 - **Placeholder app setup.** The app icon is the Flutter default, the package name is `com.example.healthbook_test`, and release builds are signed with the debug key.
 - **Large text is only partly tested.** Text is never smaller than 12 and the home tiles grow with the phone's text size setting, but not every screen has been tried at the largest sizes.
 - **`flutter analyze` shows info messages** saying `package:flutter/material.dart` is deprecated. They are expected until the app moves to `material_ui`, which changes every screen and should be agreed with the team first.
@@ -104,7 +104,7 @@ Start here when Firebase (or another backend) is added.
 - **The stores are the swap point.** Screens use four global objects: `authService`, `clinicStore`, `prescriptionStore` and `medicalHistoryStore`. Replace each with a class that talks to the backend, and keep the method names, the arguments, and the exception messages the same.
 - **The stores are synchronous today.** A real backend is asynchronous, so the methods will become `Future`s and the screens that call them will need `await`. Most screen logic stays as it is.
 - **Enforce the rules on the server too**, not only in the app. The list is under Business rules above. The tests in `test/` describe the expected behaviour and are a good checklist.
-- **Add fields that are not stored yet:** phone number and date of birth (collected at sign-up), and the medical history entered at registration.
+- **Save the profile collected at sign-up** (name, phone number, date of birth, and for doctors the specialty and license number, plus the medical history for patients). `AppUser` and `UserProfile` already carry these fields in memory.
 - **Files:** upload PDFs and images to file storage and keep the storage link instead of the phone path. `lib/widgets/open_file_helper.dart` (and the image viewer in `lib/screens/file_viewer_screen.dart`) is the one place that opens them.
 - **Doctor verification** (`verifyDoctor`, `unverifyDoctor`) should become a server-side process. The debug-only button on the doctor's profile goes away.
 - **Time:** slots and the booking window use the phone's clock. Use server time and one time zone. `ClinicStore` accepts a clock for tests.
@@ -166,7 +166,7 @@ The demo doctor is already verified and has an approved appointment with the dem
 
 Automated tests live in the `test/` folder. Run them with: `flutter test`
 
-They cover the booking rules, the prescription and access rules, medical history, validators, the allergy check, reminder planning, file types, BMI calculations, and a start-up check of the app. The screens themselves have no automated tests, so try changes on a device or emulator.
+They cover the booking rules, the prescription and access rules, medical history, validators, the allergy check, password strength, reminder planning, file types, sign-up details, BMI calculations, and a start-up check of the app. The screens themselves have no automated tests, so try changes on a device or emulator.
 
 To check code quality, run: `flutter analyze`
 
@@ -210,7 +210,6 @@ The stores in `services/` are currently in memory. See [For the backend develope
 - Checkup report
 - Firebase or any other backend
 - Real doctor verification
-- Saving phone number and date of birth
 - App icon, final package name and release signing
 
 ## Contributing

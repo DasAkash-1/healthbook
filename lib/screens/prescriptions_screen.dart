@@ -60,22 +60,40 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         allowedExtensions: ['pdf'],
       );
 
-      if (!mounted) return;
+      // The person closed the picker without choosing a file.
+      if (!mounted || result == null) return;
 
-      if (result != null && result.files.single.path != null) {
-        final file = result.files.single;
-        prescriptionStore.uploadExternalPrescription(
-          patientId: widget.patientId,
-          fileName: file.name,
-          filePath: file.path!,
+      final file = result.files.single;
+      final path = file.path;
+      if (path == null) {
+        _showError(
+          'This file is not stored on your phone. Save it to your phone first, then choose it again.',
         );
-        _refresh();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('External prescription uploaded successfully.')),
-        );
+        return;
       }
+
+      prescriptionStore.uploadExternalPrescription(
+        patientId: widget.patientId,
+        fileName: file.name,
+        filePath: path,
+      );
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('External prescription uploaded successfully.')),
+      );
+    } on PlatformException catch (e) {
+      debugPrint('File picker problem: $e');
+      if (!mounted) return;
+      _showError(
+        'The file picker could not open. Check that Healthbook is allowed to use files on this phone, then try again.',
+      );
+    } on PrescriptionException catch (e) {
+      if (!mounted) return;
+      _showError(e.message);
     } catch (e) {
-      _showError('Failed to pick PDF file: $e');
+      debugPrint('Upload failed: $e');
+      if (!mounted) return;
+      _showError('Something went wrong while uploading the file. Please try again.');
     }
   }
 

@@ -42,8 +42,16 @@ class AppUser {
   final String id; // lowercase email
   final String name;
   final UserRole role;
+  final String phone; // empty for the demo accounts
+  final DateTime? dateOfBirth; // null for the demo accounts
 
-  const AppUser({required this.id, required this.name, required this.role});
+  const AppUser({
+    required this.id,
+    required this.name,
+    required this.role,
+    this.phone = '',
+    this.dateOfBirth,
+  });
 }
 
 class Doctor {
