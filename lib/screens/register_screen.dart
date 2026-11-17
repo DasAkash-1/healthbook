@@ -4,6 +4,7 @@ import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
 import '../widgets/medical_history_form.dart';
+import '../widgets/password_strength_meter.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -156,10 +157,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     bool readOnly = false,
     VoidCallback? onTap,
     String? hint,
+    double bottomPadding = 16,
     String? Function(String?)? validator,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: bottomPadding),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
@@ -283,7 +285,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
+            bottomPadding: 8,
             validator: Validators.password,
+          ),
+          // Fills up from red to green as the password gets stronger.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _passwordCtrl,
+            builder: (context, value, _) => PasswordStrengthMeter(
+              password: value.text,
+              email: _emailCtrl.text,
+            ),
           ),
           _field(
             controller: _confirmCtrl,

@@ -158,7 +158,13 @@ class FakeAuthService implements AuthService {
       }
     }
 
-    final user = AppUser(id: key, name: profile.name, role: role);
+    final user = AppUser(
+      id: key,
+      name: profile.name,
+      role: role,
+      phone: profile.phone,
+      dateOfBirth: profile.dateOfBirth,
+    );
     _accounts[key] = _Account(password: password, user: user);
 
     if (role == UserRole.patient) {
