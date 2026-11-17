@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/clinic_store.dart';
 import '../services/medical_history_store.dart';
 import '../services/prescription_store.dart';
+import '../services/reminder_service.dart';
 import '../utils/formatters.dart';
 import 'doctor_directory_screen.dart';
 import 'bmi_screen.dart';
@@ -25,6 +26,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshReminders();
+  }
+
+  // Plans the phone reminders again from what the patient has now.
+  void _refreshReminders() {
+    final patientId = authService.currentUser?.id;
+    if (patientId != null) reminderService.refreshFor(patientId);
+  }
 
   final List<Map<String, dynamic>> _dashboardItems = [
     {
@@ -67,8 +80,9 @@ class _HomePageState extends State<HomePage> {
         ),
     };
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((_) {
-      // Refresh the Records tab summaries when the person comes back.
+      // Refresh the Records tab summaries and the reminders when the person comes back.
       if (mounted) setState(() {});
+      _refreshReminders();
     });
   }
 
@@ -149,6 +163,7 @@ class _HomePageState extends State<HomePage> {
             MaterialPageRoute(builder: (_) => const MyAppointmentsScreen()),
           ).then((_) {
             if (mounted) setState(() {});
+            _refreshReminders();
           }),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -301,8 +316,9 @@ class _HomePageState extends State<HomePage> {
             },
           ),
         ).then((_) {
-          // Refresh the summary lines when the person comes back.
+          // Refresh the summary lines and the reminders when the person comes back.
           if (mounted) setState(() {});
+          _refreshReminders();
         }),
       ),
     );
@@ -479,6 +495,7 @@ class _HomePageState extends State<HomePage> {
           setState(() {
             _currentIndex = index;
           });
+          _refreshReminders();
         },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF102A66),

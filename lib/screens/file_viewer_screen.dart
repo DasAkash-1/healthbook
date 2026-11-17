@@ -1,17 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:pdfrx/pdfrx.dart';
 
 import '../utils/app_colors.dart';
-import '../utils/file_kind.dart';
 
-// Shows a PDF or an image that a patient uploaded.
+// Shows an image that a patient uploaded, with pinch to zoom.
+// PDFs are opened in the phone's own PDF reader instead (see openUploadedFile).
 //
 // TODO(backend): uploaded files will live in cloud storage. Until then only the path on
 // the phone that picked the file is kept, so the file can only be opened on that phone.
-// Once files are stored online, download the file (or open its link) here instead of
-// reading [path].
 class FileViewerScreen extends StatelessWidget {
   final String title;
   final String path;
@@ -31,37 +28,6 @@ class FileViewerScreen extends StatelessWidget {
         child: Text(text, textAlign: TextAlign.center),
       ),
     );
-  }
-
-  Widget _content() {
-    if (path.isEmpty || !File(path).existsSync()) {
-      return _message(
-        'This file cannot be found on this phone. It may have been moved or '
-        'deleted, or it was uploaded from another phone. Upload it again to view it.',
-      );
-    }
-
-    switch (fileKindFor(path)) {
-      case FileKind.pdf:
-        return PdfViewer.file(path);
-      case FileKind.image:
-        return InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 5,
-          child: Center(
-            child: Image.file(
-              File(path),
-              errorBuilder: (context, error, stackTrace) =>
-                  _message('This image could not be opened.'),
-            ),
-          ),
-        );
-      case FileKind.other:
-        return _message(
-          'This file type cannot be shown in the app yet. '
-          'Only PDFs and images (PNG, JPG) can be opened.',
-        );
-    }
   }
 
   @override
@@ -87,7 +53,19 @@ class FileViewerScreen extends StatelessWidget {
                   ),
                 ),
               ),
-            Expanded(child: _content()),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 5,
+                child: Center(
+                  child: Image.file(
+                    File(path),
+                    errorBuilder: (context, error, stackTrace) =>
+                        _message('This image could not be opened.'),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

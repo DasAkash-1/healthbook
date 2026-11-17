@@ -12,7 +12,7 @@ import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
 import 'test_results_screen.dart';
 import '../utils/app_colors.dart';
-import 'file_viewer_screen.dart';
+import '../widgets/open_file_helper.dart';
 
 // Shared by the patient and by a doctor with access.
 class PrescriptionsScreen extends StatefulWidget {
@@ -88,15 +88,11 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   }
 
   void _viewExternal(PrescriptionRecord record) {
-    Navigator.push(
+    openUploadedFile(
       context,
-      MaterialPageRoute(
-        builder: (_) => FileViewerScreen(
-          title: record.externalFileName ?? 'Prescription PDF',
-          path: record.externalFilePath ?? '',
-          subtitle: 'Uploaded ${formatDateTime(record.date)}',
-        ),
-      ),
+      title: record.externalFileName ?? 'Prescription PDF',
+      path: record.externalFilePath ?? '',
+      subtitle: 'Uploaded ${formatDateTime(record.date)}',
     );
   }
 

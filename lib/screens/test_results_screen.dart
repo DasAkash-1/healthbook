@@ -6,7 +6,7 @@ import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
 import '../utils/app_colors.dart';
-import 'file_viewer_screen.dart';
+import '../widgets/open_file_helper.dart';
 
 class TestResultsScreen extends StatefulWidget {
   final String patientId;
@@ -61,17 +61,13 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
   }
 
   void _viewResult(RecommendedTest test) {
-    Navigator.push(
+    openUploadedFile(
       context,
-      MaterialPageRoute(
-        builder: (_) => FileViewerScreen(
-          title: test.uploadedFileName ?? test.name,
-          path: test.uploadedFilePath ?? '',
-          subtitle: test.uploadedAt != null
-              ? '${test.name} • uploaded ${formatDateTime(test.uploadedAt!)}'
-              : test.name,
-        ),
-      ),
+      title: test.uploadedFileName ?? test.name,
+      path: test.uploadedFilePath ?? '',
+      subtitle: test.uploadedAt != null
+          ? '${test.name} • uploaded ${formatDateTime(test.uploadedAt!)}'
+          : test.name,
     );
   }
 
