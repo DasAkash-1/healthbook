@@ -27,7 +27,8 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
 5. Open **Prescriptions** and give the demo doctor access to your prescriptions and medical history. The demo doctor can be given access because the two already have an approved appointment.
 6. Log out, then tap **Demo doctor**. The Requests tab shows a **Today** summary. Approve a request with a note, or reject one with a reason.
 7. On the Patients tab, open the demo patient and add a prescription with "Penicillin V". You get an allergy warning. Go back, change it, then save. Try editing and removing a medication.
-8. Log back in as the patient. Your prescriptions are listed and you can mark doses as taken or missed. Upload a PDF as an outside prescription, then tap **View PDF** to open it in the app.
+8. Log back in as the patient. Your prescriptions are listed and you can mark doses as taken or missed. Upload a PDF as an outside prescription, then tap **View PDF**. It opens in your phone's PDF reader.
+9. When Android asks to allow notifications, tap Allow. The phone then shows reminders for your medicines and your next appointment, even when the app is closed.
 
 ## Features
 
@@ -38,10 +39,11 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
 - Request a 20-minute appointment with an optional visit type and note, and review it before sending
 - View appointments, cancel a pending request, or cancel an approved appointment by giving a reason
 - See the doctor's note on an approved appointment, and your next approved appointment on the home screen
+- Get phone reminders for your medicines (at set times of day, for as many doses as you have left) and for approved appointments (a day before and an hour before)
 - Grant or revoke a doctor's access to prescriptions and medical history
 - Log doses as taken or missed
 - View and update medical history (allergies, conditions, surgeries, current medicines)
-- Upload outside prescriptions (PDF) and test result files (PDF, JPG, PNG), and open them in the app
+- Upload outside prescriptions (PDF) and test result files (PDF, JPG, PNG), and open them again later (images open in the app, PDFs open in your phone's PDF reader)
 - Calculate BMI
 
 **Doctors**
@@ -77,11 +79,17 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
 - **No backend.** Everything is in memory and resets when the app restarts.
 - **One device only.** Nothing is shared between phones.
 - **Uploaded files only exist on the phone that picked them.** The app keeps the file's path, not the file. The viewer shows a message if the file is gone, for example when the phone cleared its cache, or when a doctor on another phone tries to open it.
-- **Only PDFs and PNG or JPG images can be opened in the app.** The pickers do not offer other file types.
+- **PDFs open in another app.** Images open inside Healthbook, but PDFs are handed to the phone's own PDF reader (or browser). If the phone has no app for PDFs, the app says so. The pickers only offer PDF, PNG and JPG.
 - **Login is not secure.** Accounts live in memory. There is no password reset and no email check.
 - **Doctor verification is a placeholder.** In debug builds a button on the doctor's profile verifies the doctor. Release builds have no way to do it, so new doctors cannot be booked until the backend exists.
 - **Allergy warnings are a text match.** They miss related medicines, for example amoxicillin for a penicillin allergy, and they only work while the patient's access is on.
-- **No reminders or notifications.** The app does not remind anyone about doses or appointments.
+- **Reminders are basic.**
+  - They are planned for the next 7 days, and planned again every time the patient opens the app, so opening it keeps them going.
+  - Dose times are fixed (for example 09:00 and 21:00 for twice a day) and cannot be changed yet.
+  - Reminders can arrive a few minutes late, because the app uses battery-friendly alarms.
+  - Some phone makers, vivo and iQOO included, switch off notifications from apps that are not open. If reminders do not show, allow Healthbook to run in the background in the phone's battery settings.
+  - Reminders belong to the phone that is logged in as the patient. Because data is not saved yet, they only reflect what is in the app since it was started.
+  - There are no reminders for doctors, and no messages that start on the server (for example "your appointment was approved" or "a new request is waiting"). Those need the backend.
 - **Times use the phone's clock and time zone.** A pending request whose time has passed stays pending, because there is no expiry yet.
 - **Phone number and date of birth are collected at sign-up but not saved.**
 - **Placeholder app setup.** The app icon is the Flutter default, the package name is `com.example.healthbook_test`, and release builds are signed with the debug key.
@@ -97,9 +105,10 @@ Start here when Firebase (or another backend) is added.
 - **The stores are synchronous today.** A real backend is asynchronous, so the methods will become `Future`s and the screens that call them will need `await`. Most screen logic stays as it is.
 - **Enforce the rules on the server too**, not only in the app. The list is under Business rules above. The tests in `test/` describe the expected behaviour and are a good checklist.
 - **Add fields that are not stored yet:** phone number and date of birth (collected at sign-up), and the medical history entered at registration.
-- **Files:** upload PDFs and images to file storage and keep the storage link instead of the phone path. `lib/screens/file_viewer_screen.dart` is the one place that opens them.
+- **Files:** upload PDFs and images to file storage and keep the storage link instead of the phone path. `lib/widgets/open_file_helper.dart` (and the image viewer in `lib/screens/file_viewer_screen.dart`) is the one place that opens them.
 - **Doctor verification** (`verifyDoctor`, `unverifyDoctor`) should become a server-side process. The debug-only button on the doctor's profile goes away.
 - **Time:** slots and the booking window use the phone's clock. Use server time and one time zone. `ClinicStore` accepts a clock for tests.
+- **Reminders:** `lib/services/reminder_service.dart` puts reminders on the phone, and `lib/utils/reminder_planner.dart` decides what they say and when. When data comes from the server, call `reminderService.refreshFor(patientId)` after every sync. Messages that start on the server (approved, rejected, new request) need server push notifications, for example Firebase Cloud Messaging.
 - **Android:** the main manifest has no internet permission yet (only the debug and profile ones do), and Firebase's Gradle setup has to be added. Read [Android build setup](#android-build-setup) first and do the Gradle work in its own pull request.
 
 ## Getting started
@@ -111,7 +120,7 @@ Start here when Firebase (or another backend) is added.
 
 You need Flutter 3.50.0 or newer (check with `flutter --version`) and JDK 17 or newer. The JDK that comes with Android Studio is fine. On Windows, turn on Developer Mode (run `start ms-settings:developers`), because Flutter needs symlink support to build with plugins.
 
-The PDF viewer (`pdfrx`) bundles the PDFium library, so the first build after adding it can take longer and may need an internet connection. It also makes the app larger. To see by how much, run `flutter build apk --analyze-size`.
+Opening PDFs uses the `open_filex` package. It only has Android code, so building and `flutter test` need no extra tools on your computer.
 
 ## Android build setup
 
@@ -134,6 +143,8 @@ A few things you will see while building:
 - Never run `flutter create` over an existing project to "fix" the Android setup.
 - `local.properties` is specific to each machine and is already in `.gitignore`. Don't commit it, and don't commit keystore files or `key.properties`.
 
+**Reminders (notification package).** Phone reminders use `flutter_local_notifications`, which needs two changes to the Android setup, both agreed with Ayman: core library desugaring is switched on in `android/app/build.gradle.kts` (one line in `compileOptions` plus a `dependencies` block), and `AndroidManifest.xml` has the notification permissions and two receivers. The package needs minSdk 24 and Java 17, which the project already uses.
+
 ## Development devices
 
 Ayman is the only one on the team who develops on a physical device, a phone running Android 16 over wireless debugging. The other three use emulators. That means a change can behave differently on his phone than on yours, especially anything involving permissions, file picking, notifications, the camera, or storage.
@@ -155,7 +166,7 @@ The demo doctor is already verified and has an approved appointment with the dem
 
 Automated tests live in the `test/` folder. Run them with: `flutter test`
 
-They cover the booking rules, the prescription and access rules, medical history, validators, the allergy check, file types, BMI calculations, and a start-up check of the app. The screens themselves have no automated tests, so try changes on a device or emulator.
+They cover the booking rules, the prescription and access rules, medical history, validators, the allergy check, reminder planning, file types, BMI calculations, and a start-up check of the app. The screens themselves have no automated tests, so try changes on a device or emulator.
 
 To check code quality, run: `flutter analyze`
 
@@ -166,10 +177,10 @@ lib/
 ├── main.dart                  App entry point and theme
 ├── splash_screen.dart         Splash screen
 ├── models/                    Data types (users, doctors, appointments, prescriptions, medical history)
-├── services/                  Stores and rules: auth, clinic, prescriptions, medical history
-├── screens/                   All app screens, including the PDF and image viewer
-├── widgets/                   Shared dialogs and forms (reasons, approval note, allergy warning, medical history)
-└── utils/                     Validators, formatters, BMI, allergy check, file types, text colours
+├── services/                  Stores and rules: auth, clinic, prescriptions, medical history, reminders
+├── screens/                   All app screens, including the image viewer
+├── widgets/                   Shared dialogs and forms (reasons, approval note, allergy warning, medical history, opening files)
+└── utils/                     Validators, formatters, BMI, allergy check, reminder planner, file types, text colours
 ```
 
 The stores in `services/` are currently in memory. See [For the backend developer](#for-the-backend-developer) for how to replace them.
@@ -185,7 +196,8 @@ The stores in `services/` are currently in memory. See [For the backend develope
 - Prescriptions with access control, version history, and edit and remove for doctors
 - Allergy warning when a doctor prescribes a medicine
 - Dose logging
-- Uploading outside prescriptions and test results, and opening them in the app (PDF and images)
+- Phone reminders for medicine doses and approved appointments
+- Uploading outside prescriptions and test results, and opening them (images in the app, PDFs in the phone's PDF reader)
 - Medical history at registration and later
 - BMI calculator
 - Text never smaller than 12, and small text uses the colours in `lib/utils/app_colors.dart` so it stays readable
@@ -194,7 +206,7 @@ The stores in `services/` are currently in memory. See [For the backend develope
 
 **Not yet built**
 
-- Dose reminders and notifications (they need a notification package and a change to the Gradle files, so they need the team's approval first)
+- Server push notifications (for example "appointment approved" or "new request"), reminders for doctors, and choosing your own reminder times
 - Checkup report
 - Firebase or any other backend
 - Real doctor verification
