@@ -2,6 +2,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/clinic_store.dart';
+import '../services/medical_history_store.dart';
+import '../services/prescription_store.dart';
+import '../services/reminder_service.dart';
+import '../utils/formatters.dart';
 import 'doctor_directory_screen.dart';
 import 'bmi_screen.dart';
 import 'feature_screen.dart';
@@ -9,6 +14,8 @@ import 'login_screen.dart';
 import 'medical_history_screen.dart';
 import 'my_appointments_screen.dart';
 import 'prescriptions_screen.dart';
+import 'test_results_screen.dart';
+import '../utils/app_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,6 +26,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshReminders();
+  }
+
+  // Plans the phone reminders again from what the patient has now.
+  void _refreshReminders() {
+    final patientId = authService.currentUser?.id;
+    if (patientId != null) reminderService.refreshFor(patientId);
+  }
 
   final List<Map<String, dynamic>> _dashboardItems = [
     {
@@ -53,13 +72,18 @@ class _HomePageState extends State<HomePage> {
       'Doctors' => const DoctorDirectoryScreen(),
       'Appointments' => const MyAppointmentsScreen(),
       'Prescriptions' => PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
+      'Test Results' => TestResultsScreen(patientId: authService.currentUser?.id ?? ''),
       _ => FeatureScreen(
           title: title,
           icon: item['icon'] as IconData,
           emptyMessage: item['empty'] as String,
         ),
     };
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((_) {
+      // Refresh the Records tab summaries and the reminders when the person comes back.
+      if (mounted) setState(() {});
+      _refreshReminders();
+    });
   }
 
   Widget _buildTab(int index) {
@@ -114,7 +138,105 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // How much bigger than normal the phone's text setting is (1.0 = normal), capped at 1.6.
+  double _textScale(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return scale < 1.0 ? 1.0 : (scale > 1.6 ? 1.6 : scale);
+  }
+
+  // Shows the patient's next approved appointment, if there is one.
+  Widget _upcomingBanner() {
+    final patientId = authService.currentUser?.id ?? '';
+    final next = clinicStore.nextApprovedAppointmentFor(patientId);
+    if (next == null) return const SizedBox.shrink();
+
+    final doctor = clinicStore.doctorById(next.doctorId);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: const Color(0xFFDCE6FF),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MyAppointmentsScreen()),
+          ).then((_) {
+            if (mounted) setState(() {});
+            _refreshReminders();
+          }),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.event_available, color: Color(0xFF102A66), size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Next appointment',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF102A66)),
+                      ),
+                      Text(
+                        doctor?.name ?? 'Your doctor',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0D1B2A),
+                        ),
+                      ),
+                      Text(
+                        '${formatDay(next.start)} • ${formatSlot(next.start)}',
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF0D1B2A)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFF102A66)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _plural(int n, String one, String many) => n == 1 ? '$n $one' : '$n $many';
+
+  // Short lines shown under each tile on the Records tab.
+  String _prescriptionsSummary(String patientId) {
+    final medicines = prescriptionStore.medicationsFor(patientId).length;
+    final pdfs = prescriptionStore.externalPrescriptionsFor(patientId).length;
+    if (medicines == 0 && pdfs == 0) return 'No prescriptions added yet.';
+
+    final parts = <String>[];
+    if (medicines > 0) parts.add(_plural(medicines, 'medicine', 'medicines'));
+    if (pdfs > 0) parts.add(_plural(pdfs, 'uploaded PDF', 'uploaded PDFs'));
+
+    final records = prescriptionStore.recordsFor(patientId);
+    parts.add('last added ${formatDay(records.last.date)}');
+    return parts.join(' • ');
+  }
+
+  String _testResultsSummary(String patientId) {
+    final tests = prescriptionStore.recommendedTestsFor(patientId);
+    if (tests.isEmpty) return 'No tests recommended yet.';
+
+    final uploaded = tests.where((t) => t.status == 'Result Uploaded').length;
+    return '${_plural(tests.length, 'test', 'tests')} • '
+        '${_plural(uploaded, 'result uploaded', 'results uploaded')}';
+  }
+
+  String _medicalHistorySummary(String patientId) {
+    final history = medicalHistoryStore.historyFor(patientId, patientId);
+    if (history == null) return 'No medical history recorded yet.';
+    return 'Last updated ${formatDay(history.updatedAt)}';
+  }
+
   Widget _buildRecordsTab() {
+    final patientId = authService.currentUser?.id ?? '';
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -130,12 +252,12 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 16),
           _recordTile('Prescriptions', CupertinoIcons.doc_text_fill,
-              'No prescriptions added yet.'),
-          _recordTile(
-              'Test Results', CupertinoIcons.search, 'No test results added yet.'),
+              _prescriptionsSummary(patientId)),
+          _recordTile('Test Results', CupertinoIcons.search,
+              _testResultsSummary(patientId)),
           _bmiTile(),
-          _recordTile(
-              'Medical History', Icons.health_and_safety_outlined, 'No medical history recorded yet.'),
+          _recordTile('Medical History', Icons.health_and_safety_outlined,
+              _medicalHistorySummary(patientId)),
         ],
       ),
     );
@@ -162,7 +284,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _recordTile(String title, IconData icon, String emptyMessage) {
+  Widget _recordTile(String title, IconData icon, String subtitle) {
+    final patientId = authService.currentUser?.id ?? '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: ListTile(
@@ -176,23 +299,27 @@ class _HomePageState extends State<HomePage> {
             color: Color(0xFF0D1B2A),
           ),
         ),
+        subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => switch (title) {
-                  'Prescriptions' =>
-                    PrescriptionsScreen(patientId: authService.currentUser?.id ?? ''),
-                  'Medical History' =>
-                    MedicalHistoryScreen(patientId: authService.currentUser?.id ?? ''),
-                  _ => FeatureScreen(
-                      title: title,
-                      icon: icon,
-                      emptyMessage: emptyMessage,
-                    ),
-                },
+              'Prescriptions' => PrescriptionsScreen(patientId: patientId),
+              'Test Results' => TestResultsScreen(patientId: patientId),
+              'Medical History' => MedicalHistoryScreen(patientId: patientId),
+              _ => FeatureScreen(
+                  title: title,
+                  icon: icon,
+                  emptyMessage: subtitle,
+                ),
+            },
           ),
-        ),
+        ).then((_) {
+          // Refresh the summary lines and the reminders when the person comes back.
+          if (mounted) setState(() {});
+          _refreshReminders();
+        }),
       ),
     );
   }
@@ -208,15 +335,11 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Custom Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu, color: Color(0xFF0D1B2A), size: 28),
-                    onPressed: () {},
-                  ),
-                  const Text(
+              // Header. The menu and settings icons are hidden until they have a use.
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(
+                  child: Text(
                     'Healthbook',
                     style: TextStyle(
                       fontFamily: 'Georgia',
@@ -226,19 +349,10 @@ class _HomePageState extends State<HomePage> {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF0D1B2A), width: 1.5),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.settings_outlined, color: Color(0xFF0D1B2A), size: 22),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 16),
+              _upcomingBanner(),
 
               // Hero Illustration Banner Placeholder
               Container(
@@ -278,7 +392,7 @@ class _HomePageState extends State<HomePage> {
                                 Text(
                                   'Manage records & appointments securely.',
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     color: Colors.grey[700],
                                   ),
                                 ),
@@ -311,11 +425,12 @@ class _HomePageState extends State<HomePage> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _dashboardItems.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 14,
                   mainAxisSpacing: 14,
-                  childAspectRatio: 1.35,
+                  // The tiles grow with the phone's text size, so large text is not cut off.
+                  mainAxisExtent: 116 * _textScale(context),
                 ),
                 itemBuilder: (context, index) {
                   final item = _dashboardItems[index];
@@ -355,9 +470,9 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 2),
                         Text(
                           item['subtitle'] as String,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: kTextMuted,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -380,10 +495,11 @@ class _HomePageState extends State<HomePage> {
           setState(() {
             _currentIndex = index;
           });
+          _refreshReminders();
         },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF102A66),
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: kTextMuted,
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [
