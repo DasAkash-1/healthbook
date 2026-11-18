@@ -1,10 +1,13 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/prescription_models.dart';
 import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
+import '../utils/app_colors.dart';
+import '../widgets/open_file_helper.dart';
 
 class TestResultsScreen extends StatefulWidget {
   final String patientId;
@@ -38,51 +41,52 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
         allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
       );
 
-      if (!mounted) return;
+      // The person closed the picker without choosing a file.
+      if (!mounted || result == null) return;
 
-      if (result != null && result.files.single.path != null) {
-        final file = result.files.single;
-        prescriptionStore.uploadTestResult(
-          patientId: widget.patientId,
-          testId: test.id,
-          fileName: file.name,
-          filePath: file.path!,
+      final file = result.files.single;
+      final path = file.path;
+      if (path == null) {
+        _showError(
+          'This file is not stored on your phone. Save it to your phone first, then choose it again.',
         );
-        _refresh();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Test result uploaded successfully.')),
-        );
+        return;
       }
+
+      prescriptionStore.uploadTestResult(
+        patientId: widget.patientId,
+        testId: test.id,
+        fileName: file.name,
+        filePath: path,
+      );
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test result uploaded successfully.')),
+      );
+    } on PlatformException catch (e) {
+      debugPrint('File picker problem: $e');
+      if (!mounted) return;
+      _showError(
+        'The file picker could not open. Check that Healthbook is allowed to use files on this phone, then try again.',
+      );
+    } on PrescriptionException catch (e) {
+      if (!mounted) return;
+      _showError(e.message);
     } catch (e) {
-      _showError('Failed to pick file: $e');
+      debugPrint('Upload failed: $e');
+      if (!mounted) return;
+      _showError('Something went wrong while uploading the file. Please try again.');
     }
   }
 
   void _viewResult(RecommendedTest test) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(test.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Status: ${test.status}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('File Name: ${test.uploadedFileName ?? 'N/A'}'),
-            const SizedBox(height: 4),
-            Text('Uploaded At: ${test.uploadedAt != null ? formatDateTime(test.uploadedAt!) : 'N/A'}'),
-            const SizedBox(height: 8),
-            Text('File Path:\n${test.uploadedFilePath ?? 'N/A'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+    openUploadedFile(
+      context,
+      title: test.uploadedFileName ?? test.name,
+      path: test.uploadedFilePath ?? '',
+      subtitle: test.uploadedAt != null
+          ? '${test.name} • uploaded ${formatDateTime(test.uploadedAt!)}'
+          : test.name,
     );
   }
 
@@ -108,7 +112,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                     padding: const EdgeInsets.all(32),
                     child: Text(
                       isPatient
-                          ? 'No medical tests recommended yet.'
+                          ? 'No medical tests recommended yet. Tests your doctor recommends will appear here.'
                           : 'No medical tests recommended for this patient.',
                       textAlign: TextAlign.center,
                     ),
@@ -156,9 +160,9 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                                 child: Text(
                                   test.status,
                                   style: TextStyle(
-                                    color: isUploaded ? Colors.green.shade700 : Colors.orange.shade700,
+                                    color: isUploaded ? kTextSuccess : kTextWarning,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ),
@@ -167,11 +171,11 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                           const SizedBox(height: 6),
                           Text(
                             'Recommended by ${test.recommendingDoctorName.isEmpty ? 'Doctor' : test.recommendingDoctorName} • ${formatDateTime(test.recommendedAt)}',
-                            style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                            style: TextStyle(color: Colors.grey[700], fontSize: 14),
                           ),
                           if (test.instructions.isNotEmpty) ...[
                             const SizedBox(height: 6),
-                            Text('Instructions: ${test.instructions}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                            Text('Instructions: ${test.instructions}', style: const TextStyle(color: kTextMuted, fontSize: 14)),
                           ],
                           const SizedBox(height: 12),
                           Row(
@@ -184,7 +188,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
                                   label: Text(test.uploadedFileName ?? 'View Result'),
                                 )
                               else
-                                const Text('No result uploaded yet', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                const Text('No result uploaded yet', style: TextStyle(color: kTextMuted, fontSize: 14)),
                               if (isPatient)
                                 ElevatedButton.icon(
                                   onPressed: () => _uploadResult(test),

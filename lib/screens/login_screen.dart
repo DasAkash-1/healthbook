@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import 'doctor_home_page.dart';
 import 'home_page.dart';
 import 'register_screen.dart';
+import '../utils/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -154,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Demo accounts (debug builds only)',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600]),
+                  style: const TextStyle(color: kTextMuted),
                 ),
                 const SizedBox(height: 8),
                 Row(

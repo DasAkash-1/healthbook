@@ -65,6 +65,9 @@ class _Account {
 // TEMPORARY: accounts are kept in memory and cleared when the app restarts.
 // Passwords are kept in plain text here so login can be tested. This is NOT
 // secure. Replace with a Firebase version later.
+//
+// TODO(backend): replace this whole class with the real login service. Passwords must
+// never be stored or compared inside the app. Keep the AuthService methods the same.
 class FakeAuthService implements AuthService {
   final Map<String, _Account> _accounts = {};
   AppUser? _current;
@@ -73,6 +76,7 @@ class FakeAuthService implements AuthService {
     if (kDebugMode) _seedDemoAccounts();
   }
 
+  // TODO(backend): demo accounts are for testing only. Remove them with this in-memory version.
   // Demo doctor is verified and has an approved appointment with the demo patient
   // for tomorrow at 9:00, so prescription access can be tested straight away.
   void _seedDemoAccounts() {
@@ -123,6 +127,8 @@ class FakeAuthService implements AuthService {
   @override
   AppUser? get currentUser => _current;
 
+  // TODO(backend): create the account with the real login service and save the profile
+  // (name, phone, date of birth, specialty, license number, medical history) in the database.
   @override
   Future<void> register({
     required String email,
@@ -152,7 +158,13 @@ class FakeAuthService implements AuthService {
       }
     }
 
-    final user = AppUser(id: key, name: profile.name, role: role);
+    final user = AppUser(
+      id: key,
+      name: profile.name,
+      role: role,
+      phone: profile.phone,
+      dateOfBirth: profile.dateOfBirth,
+    );
     _accounts[key] = _Account(password: password, user: user);
 
     if (role == UserRole.patient) {
@@ -175,6 +187,7 @@ class FakeAuthService implements AuthService {
     }
   }
 
+  // TODO(backend): sign in with the real login service and load the user's profile.
   @override
   Future<AppUser> login({
     required String email,
@@ -192,6 +205,7 @@ class FakeAuthService implements AuthService {
     return account.user;
   }
 
+  // TODO(backend): sign out of the real login service.
   @override
   void logout() {
     _current = null;

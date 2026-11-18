@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/prescription_models.dart';
 import '../services/auth_service.dart';
@@ -8,8 +9,11 @@ import '../utils/formatters.dart';
 import 'create_prescription_screen.dart';
 import 'doctor_access_screen.dart';
 import 'medical_history_screen.dart';
+import 'medication_form_screen.dart';
 import 'prescription_history_screen.dart';
 import 'test_results_screen.dart';
+import '../utils/app_colors.dart';
+import '../widgets/open_file_helper.dart';
 
 // Shared by the patient and by a doctor with access.
 class PrescriptionsScreen extends StatefulWidget {
@@ -57,22 +61,40 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         allowedExtensions: ['pdf'],
       );
 
-      if (!mounted) return;
+      // The person closed the picker without choosing a file.
+      if (!mounted || result == null) return;
 
-      if (result != null && result.files.single.path != null) {
-        final file = result.files.single;
-        prescriptionStore.uploadExternalPrescription(
-          patientId: widget.patientId,
-          fileName: file.name,
-          filePath: file.path!,
+      final file = result.files.single;
+      final path = file.path;
+      if (path == null) {
+        _showError(
+          'This file is not stored on your phone. Save it to your phone first, then choose it again.',
         );
-        _refresh();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('External prescription uploaded successfully.')),
-        );
+        return;
       }
+
+      prescriptionStore.uploadExternalPrescription(
+        patientId: widget.patientId,
+        fileName: file.name,
+        filePath: path,
+      );
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('External prescription uploaded successfully.')),
+      );
+    } on PlatformException catch (e) {
+      debugPrint('File picker problem: $e');
+      if (!mounted) return;
+      _showError(
+        'The file picker could not open. Check that Healthbook is allowed to use files on this phone, then try again.',
+      );
+    } on PrescriptionException catch (e) {
+      if (!mounted) return;
+      _showError(e.message);
     } catch (e) {
-      _showError('Failed to pick PDF file: $e');
+      debugPrint('Upload failed: $e');
+      if (!mounted) return;
+      _showError('Something went wrong while uploading the file. Please try again.');
     }
   }
 
@@ -85,28 +107,11 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   }
 
   void _viewExternal(PrescriptionRecord record) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('External Prescription'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('File Name: ${record.externalFileName ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('Uploaded On: ${formatDateTime(record.date)}'),
-            const SizedBox(height: 8),
-            Text('File Path:\n${record.externalFilePath ?? 'N/A'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+    openUploadedFile(
+      context,
+      title: record.externalFileName ?? 'Prescription PDF',
+      path: record.externalFilePath ?? '',
+      subtitle: 'Uploaded ${formatDateTime(record.date)}',
     );
   }
 
@@ -121,6 +126,56 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       ),
     );
     _refresh();
+  }
+
+  // Doctor only. The store checks that the doctor is verified and has the patient's access.
+  Future<void> _editMedication(Medication m) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicationFormScreen(
+          patientId: widget.patientId,
+          doctorId: _viewerId,
+          existing: m,
+        ),
+      ),
+    );
+    _refresh();
+  }
+
+  Future<void> _removeMedication(Medication m) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove this medication?'),
+        content: Text(
+          '${m.name} ${m.dose} will be removed from the prescription. '
+          'The change is recorded in the prescription history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: kTextDanger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      prescriptionStore.removeMedication(
+        patientId: widget.patientId,
+        doctorId: _viewerId,
+        medicationId: m.id,
+      );
+      _refresh();
+    } on PrescriptionException catch (e) {
+      _showError(e.message);
+    }
   }
 
   Widget _medicationCard(Medication m) {
@@ -172,6 +227,25 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
               ],
             ),
           ],
+          if (widget.isDoctor) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _removeMedication(m),
+                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  label: const Text('Remove', style: TextStyle(color: kTextDanger)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _editMedication(m),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Edit'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -194,12 +268,12 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
+                  color: Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   'External Prescription',
-                  style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: kTextWarning, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
               const Spacer(),
@@ -218,7 +292,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           const SizedBox(height: 4),
           Text(
             'Uploaded on ${formatDateTime(record.date)}',
-            style: TextStyle(color: Colors.grey[700], fontSize: 12),
+            style: TextStyle(color: Colors.grey[700], fontSize: 13),
           ),
           const SizedBox(height: 10),
           Align(
@@ -345,7 +419,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           const SizedBox(height: 8),
           Text(
             'Upload previous prescriptions from doctors outside HealthBook so your current doctor can review them.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: const TextStyle(color: kTextMuted, fontSize: 14),
           ),
           const SizedBox(height: 16),
         ],
@@ -374,7 +448,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                     ? 'No medications prescribed yet. Your doctor can add them after you grant access.'
                     : 'No medications prescribed yet. Click "New Prescription" below.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600]),
+                style: const TextStyle(color: kTextMuted),
               ),
             ),
           )

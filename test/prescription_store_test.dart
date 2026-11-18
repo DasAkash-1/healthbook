@@ -99,9 +99,13 @@ void main() {
       );
     });
 
-    test('an unverified doctor cannot change a prescription, even with access', () {
+    test('a doctor who loses verification cannot change a prescription, even with access', () {
+      // Unverified doctors cannot be booked, so this doctor is verified first
+      // and loses verification after the patient has granted access.
+      clinic.verifyDoctor(unverifiedDoctor);
       approve(unverifiedDoctor, hour: 14);
       store.grantAccess(patient, unverifiedDoctor);
+      clinic.unverifyDoctor(unverifiedDoctor);
       expect(
         () => addMed(unverifiedDoctor),
         throwsA(predicate((e) =>
@@ -129,7 +133,7 @@ void main() {
       expect(history.length, 2);
       expect(history.first.number, 2);
       expect(history.first.summary, startsWith('Updated'));
-      expect(history.last.summary, startsWith('Added'));
+      expect(history.last.summary, startsWith('Prescribed'));
       expect(history.first.byName, 'Dr. Verified');
     });
 
@@ -193,6 +197,144 @@ void main() {
 
       expect(
         () => store.historyFor(patient, unverifiedDoctor),
+        throwsA(isA<PrescriptionException>()),
+      );
+    });
+  });
+
+  group('Medication edits and validation', () {
+    // A doctor who is verified and has the patient's access.
+    void setUpDoctorWithAccess() {
+      approve(verifiedDoctor);
+      store.grantAccess(patient, verifiedDoctor);
+    }
+
+    Medication edited(Medication med, {int timesPerDay = 2, int remaining = 10}) {
+      return Medication(
+        id: med.id,
+        name: med.name,
+        dose: '250 mg',
+        timesPerDay: timesPerDay,
+        remainingDoses: remaining,
+      );
+    }
+
+    test('times per day below 1 is rejected', () {
+      setUpDoctorWithAccess();
+      expect(
+        () => store.addMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          name: 'Metformin',
+          dose: '500 mg',
+          timesPerDay: 0,
+          remainingDoses: 10,
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
+    });
+
+    test('a negative number of doses left is rejected', () {
+      setUpDoctorWithAccess();
+      expect(
+        () => addMed(verifiedDoctor, remaining: -1),
+        throwsA(isA<PrescriptionException>()),
+      );
+    });
+
+    test('an empty medicine name or dose is rejected', () {
+      setUpDoctorWithAccess();
+      expect(
+        () => store.addMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          name: '  ',
+          dose: '500 mg',
+          timesPerDay: 2,
+          remainingDoses: 10,
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
+      expect(
+        () => store.addMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          name: 'Metformin',
+          dose: '',
+          timesPerDay: 2,
+          remainingDoses: 10,
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
+      expect(store.medicationsFor(patient), isEmpty);
+    });
+
+    test('editing a medication resets doses left to the doctor\'s number', () {
+      setUpDoctorWithAccess();
+      final med = addMed(verifiedDoctor, remaining: 10);
+      store.logDose(patientId: patient, medicationId: med.id, taken: true);
+      store.logDose(patientId: patient, medicationId: med.id, taken: true);
+      expect(store.medicationsFor(patient).single.remainingDoses, 8);
+
+      store.updateMedication(
+        patientId: patient,
+        doctorId: verifiedDoctor,
+        updated: edited(med, remaining: 10),
+      );
+
+      final after = store.medicationsFor(patient).single;
+      expect(after.dose, '250 mg');
+      expect(after.remainingDoses, 10);
+    });
+
+    test('an edit with an invalid times per day is rejected and changes nothing', () {
+      setUpDoctorWithAccess();
+      final med = addMed(verifiedDoctor);
+
+      expect(
+        () => store.updateMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          updated: edited(med, timesPerDay: 5),
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
+      expect(store.medicationsFor(patient).single.dose, '500 mg');
+      expect(store.historyFor(patient, patient).length, 1);
+    });
+
+    test('a doctor whose access was revoked cannot edit or remove a medication', () {
+      setUpDoctorWithAccess();
+      final med = addMed(verifiedDoctor);
+      store.revokeAccess(patient, verifiedDoctor);
+
+      expect(
+        () => store.updateMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          updated: edited(med),
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
+      expect(
+        () => store.removeMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          medicationId: med.id,
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
+      expect(store.medicationsFor(patient), hasLength(1));
+    });
+
+    test('removing a medication that does not exist is rejected', () {
+      setUpDoctorWithAccess();
+      expect(
+        () => store.removeMedication(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          medicationId: 'med-does-not-exist',
+        ),
         throwsA(isA<PrescriptionException>()),
       );
     });
