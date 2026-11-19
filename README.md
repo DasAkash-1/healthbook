@@ -92,7 +92,7 @@ Run the app in debug mode (`flutter run`). Button names are approximate, since s
   - Reminders belong to the phone that is logged in as the patient. Because data is not saved yet, they only reflect what is in the app since it was started.
   - There are no reminders for doctors, and no messages that start on the server (for example "your appointment was approved" or "a new request is waiting"). Those need the backend.
 - **Times use the phone's clock and time zone.** A pending request whose time has passed stays pending, because there is no expiry yet.
-- **Placeholder app setup.** The app icon is the Flutter default, the package name is `com.example.healthbook_test`, and release builds are signed with the debug key.
+- **Placeholder app setup.** The app icon is the HB logo, but it was made from a small image (about 110 pixels wide), so it looks a little soft. The package name is `com.example.healthbook_test`, and release builds are signed with the debug key.
 - **Large text is only partly tested.** Text is never smaller than 12 and the home tiles grow with the phone's text size setting, but not every screen has been tried at the largest sizes.
 - **`flutter analyze` shows info messages** saying `package:flutter/material.dart` is deprecated. They are expected until the app moves to `material_ui`, which changes every screen and should be agreed with the team first.
 
@@ -177,6 +177,7 @@ A few things you will see while building:
 - The first build after cloning, or after `flutter clean`, downloads Gradle and the Android build tools. It can take 10 minutes or more. Later builds are much faster, so avoid running `flutter clean` unless you have to.
 - Flutter prints a warning that `file_picker` applies the Kotlin Gradle plugin. That is expected for now and isn't an error. Don't upgrade `file_picker` as part of an unrelated change, since newer versions have API changes.
 - `ndkVersion` in `android/app/build.gradle.kts` is set to one exact version (`30.0.16248370`). It was pinned after build errors during development, so every machine builds with the same NDK, and Gradle downloads it on the first build. Don't change it back to Flutter's default or to another version without asking Ayman.
+- The launcher icon is a set of files under `android/app/src/main/res`: `mipmap-*/ic_launcher.png` for old phones, and `drawable-*dpi/ic_launcher_foreground.png` with `mipmap-anydpi-v26/ic_launcher.xml` and `values/ic_launcher_background.xml` for Android 8 and newer. To change the icon, replace those files. No Gradle or manifest change is needed.
 - Never run `flutter create` over an existing project to "fix" the Android setup.
 - `local.properties` is specific to each machine and is already in `.gitignore`. Don't commit it, and don't commit keystore files or `key.properties`.
 
@@ -249,11 +250,13 @@ The stores in `services/` are currently in memory. See [For the backend develope
 - Checkup report
 - Firebase or any other backend
 - Real doctor verification
-- App icon, final package name and release signing
+- A sharper app icon (it needs the original logo file, ideally a PNG or SVG at 1024 pixels or larger), the final package name and release signing
 
 ## Contributing
 
 Work in small steps. Each change should pass `flutter analyze` and `flutter test` before it is committed.
+
+The repository stores text files with LF line endings, and a `.gitattributes` file keeps it that way for everyone. On Windows, Git may show your working copy with CRLF, which is fine. If a whole file shows as changed when you only edited a line, check that your Git has `core.autocrlf` set to `true` (Windows) or `input` (macOS and Linux).
 
 Don't upgrade Flutter, a package or the Gradle versions as a side effect of other work. When the team agrees on an upgrade, do it in its own pull request, commit `pubspec.lock` together with `pubspec.yaml`, and tell everyone to run `flutter pub get` after they pull. If a change works on your machine and you're not sure about other setups, say so in the pull request.
 

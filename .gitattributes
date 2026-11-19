@@ -1,0 +1,22 @@
+# Store text files with LF in the repository, whatever the operating system.
+# Windows checkouts may show CRLF in the working folder. That is fine and is not a change.
+* text=auto
+
+# Scripts that must keep their own line endings to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Files that are not text. Git must never touch their contents.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.zip binary
