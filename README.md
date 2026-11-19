@@ -113,14 +113,50 @@ Start here when Firebase (or another backend) is added.
 
 ## Getting started
 
-1. Install Flutter and Android Studio, then run `flutter doctor` and fix any issues it reports for Android.
-2. Clone the repository and open the project folder.
-3. Install dependencies: `flutter pub get`
-4. Run the app on an emulator or device: `flutter run`
+These steps are the same on every computer, and the same whether you use an emulator or a real phone. If something here doesn't work for you, please don't fix it by editing project files on your own machine. Follow [If the build fails](#if-the-build-fails) so the fix goes into the repository once, for everybody.
 
-You need Flutter 3.50.0 or newer (check with `flutter --version`) and JDK 17 or newer. The JDK that comes with Android Studio is fine. On Windows, turn on Developer Mode (run `start ms-settings:developers`), because Flutter needs symlink support to build with plugins.
+### Versions
 
-Opening PDFs uses the `open_filex` package. It only has Android code, so building and `flutter test` need no extra tools on your computer.
+The project is built and tested with the versions below. A newer Flutter may need changes to the Android setup, so the team upgrades together, in its own pull request, instead of one person at a time.
+
+| Tool | Version |
+| --- | --- |
+| Flutter | 3.50.0 or a later 3.50.x |
+| JDK | 17 or newer (the one that comes with Android Studio is fine) |
+| Android Gradle Plugin, Kotlin, Gradle | 9.3.1, 2.4.20 and 9.5.0 (set by the project, nothing to install) |
+| Android NDK | 30.0.16248370 (set by the project, downloaded on the first build) |
+
+Check your Flutter with `flutter --version`. If `flutter pub get` says the SDK version is too low, update Flutter.
+
+### First run
+
+1. Install Flutter and Android Studio, then run `flutter doctor` and fix what it reports for Android. On Windows, also turn on Developer Mode (run `start ms-settings:developers`), because Flutter needs symlink support to build with plugins.
+2. Clone the repository and open the project folder in a terminal.
+3. Run `flutter pub get`. It downloads the packages, using the exact versions saved in `pubspec.lock`.
+4. Run `flutter test`. Every test should pass. This step needs no phone, no emulator and no Android setup, so if it fails on a fresh clone, tell the team.
+5. Run `flutter analyze`. Expect about 30 infos saying `package:flutter/material.dart` is deprecated, and nothing else.
+6. Run `flutter run` and pick a device. Debug builds create the two demo accounts for you.
+
+### Emulator, USB phone or wireless phone
+
+All three run the same code and need the same setup. In Android Studio, the Device Manager creates an emulator (Android 7.0 or newer). A real phone needs developer options and USB debugging switched on, and a cable. For wireless debugging on Android 11 or newer, switch on Wireless debugging on the phone, pair it from Android Studio (or with `adb pair`), and check that `flutter devices` lists it.
+
+What differs is how the device behaves, not how you build:
+
+- PDFs: a phone usually has a PDF reader. A fresh emulator often doesn't, and the app says so. Images open inside the app on both.
+- Files to upload: a fresh emulator has no PDFs or photos to pick. Drag a file onto the emulator window to copy it in, or download one in the emulator's browser.
+- Reminders: Android 13 and newer asks for notification permission the first time, so tap Allow. Some phones (vivo, iQOO) stop background apps, which needs the battery setting described under [Known limitations](#known-limitations).
+
+### If the build fails
+
+The first build after cloning, or after `flutter clean`, downloads Gradle, the Android build tools and the NDK. It can take 10 minutes or more and needs an internet connection. Run `flutter doctor --android-licenses` and accept everything first, because Gradle can only download Android components whose licences have been accepted.
+
+If it still fails:
+
+1. Read the first error in the output, not the last one.
+2. Check your versions against the table above (`flutter --version` and `java -version`).
+3. Don't edit the Gradle files, don't run `flutter create` over the project, and don't paste in an `android/` folder from somewhere else. See [Android build setup](#android-build-setup).
+4. Tell the team, with the output of `flutter doctor -v` and the first error message. A problem that only happens on your computer is still a problem with the project. The fix belongs in the repository so the next person doesn't hit it.
 
 ## Android build setup
 
@@ -140,6 +176,7 @@ A few things you will see while building:
 
 - The first build after cloning, or after `flutter clean`, downloads Gradle and the Android build tools. It can take 10 minutes or more. Later builds are much faster, so avoid running `flutter clean` unless you have to.
 - Flutter prints a warning that `file_picker` applies the Kotlin Gradle plugin. That is expected for now and isn't an error. Don't upgrade `file_picker` as part of an unrelated change, since newer versions have API changes.
+- `ndkVersion` in `android/app/build.gradle.kts` is set to one exact version (`30.0.16248370`). It was pinned after build errors during development, so every machine builds with the same NDK, and Gradle downloads it on the first build. Don't change it back to Flutter's default or to another version without asking Ayman.
 - Never run `flutter create` over an existing project to "fix" the Android setup.
 - `local.properties` is specific to each machine and is already in `.gitignore`. Don't commit it, and don't commit keystore files or `key.properties`.
 
@@ -165,6 +202,8 @@ The demo doctor is already verified and has an approved appointment with the dem
 ## Testing
 
 Automated tests live in the `test/` folder. Run them with: `flutter test`
+
+They run on any computer that has Flutter installed. They need no phone, no emulator and no Android setup. Dates in the tests are worked out from today's date, so they don't go out of date.
 
 They cover the booking rules, the prescription and access rules, medical history, validators, the allergy check, password strength, reminder planning, file types, sign-up details, BMI calculations, and a start-up check of the app. The screens themselves have no automated tests, so try changes on a device or emulator.
 
@@ -215,6 +254,8 @@ The stores in `services/` are currently in memory. See [For the backend develope
 ## Contributing
 
 Work in small steps. Each change should pass `flutter analyze` and `flutter test` before it is committed.
+
+Don't upgrade Flutter, a package or the Gradle versions as a side effect of other work. When the team agrees on an upgrade, do it in its own pull request, commit `pubspec.lock` together with `pubspec.yaml`, and tell everyone to run `flutter pub get` after they pull. If a change works on your machine and you're not sure about other setups, say so in the pull request.
 
 Leave the Android Gradle setup alone unless the change is about the Gradle setup (see Android build setup above), and state which device or emulator you tested on in the pull request.
 

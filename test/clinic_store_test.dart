@@ -6,11 +6,7 @@ import 'package:healthbook_test/utils/validators.dart';
 // Day offset from today at midnight.
 DateTime _day(int daysFromToday) {
   final now = DateTime.now();
-  return DateTime(
-    now.year,
-    now.month,
-    now.day,
-  ).add(Duration(days: daysFromToday));
+  return DateTime(now.year, now.month, now.day + daysFromToday);
 }
 
 // Exact hour mark on a day offset from today.
