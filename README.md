@@ -8,7 +8,7 @@ Built by **DasAkash-1**, **nusrath0631** and **SAMI**.
 
 ## Who is in the app
 
-* **Patient** — signs up with name, email, phone, date of birth and password, or logs in. Can find doctors, book and cancel appointments, manage doctor access, upload external prescriptions and test results, view checkup reports, and log medicine doses.
+* **Patient** — signs up with name, email, phone, date of birth and password, or logs in. Can find doctors, book and cancel appointments, manage doctor access, upload external prescriptions and test results, customize medicine reminder hours, view checkup reports, and log medicine doses.
 * **Doctor** — signs up with name, email, phone, date of birth, specialty and medical license number, or logs in. Can set open hours, approve or reject appointment requests, and—once verified and granted access by the patient—view medical history and test results, write checkup reports, and create or edit prescriptions.
 
 ---
@@ -20,15 +20,14 @@ Built by **DasAkash-1**, **nusrath0631** and **SAMI**.
 * **Prescriptions & test results** — verified doctors with access can prescribe medicines and recommend tests. Patients can upload external prescription PDFs and test result files, view images in-app or open PDFs/other files externally, and log doses as taken or missed.
 * **Doctor checkup reports** — verified doctors with patient access can record checkup reports (diagnosis/summary, optional blood pressure, pulse, temperature, weight, clinical notes, and follow-up advice), and patients or authorized doctors can view them read-only.
 * **Medical history & history log** — patients keep their allergies, conditions, surgeries and current medicines; every doctor prescription change is recorded in a version history.
-* **Reminders** — plans upcoming medicine and approved-appointment reminders and schedules local notifications on Android, iOS and desktop.
+* **Reminders & custom schedules** — plans upcoming medicine and approved-appointment reminders, supports customizable daily dose hours per frequency (with defaults at `09:00`, `21:00`, `14:00` and `18:00`), and schedules local notifications on Android, iOS and desktop.
 
 ---
 
 ## Not yet built
 
-* **Real backend & cloud storage** — data currently lives in memory (`ClinicStore`, `PrescriptionStore`, `MedicalHistoryStore`, `CheckupReportStore`, `AuthService`) and resets when the app restarts. Files are opened from local paths on the device.
+* **Real backend & cloud storage** — data currently lives in memory (`ClinicStore`, `PrescriptionStore`, `MedicalHistoryStore`, `CheckupReportStore`, `ReminderScheduleStore`, `AuthService`) and resets when the app restarts. Files are opened from local paths on the device.
 * **Doctor license verification** — doctors start unverified and are verified in memory (`verifyDoctor`); real license checks belong on a server.
-* **Custom reminder times** — medicine reminder times are fixed to `09:00`, `21:00`, `14:00` and `18:00`.
 
 ---
 
@@ -49,29 +48,30 @@ Built by **DasAkash-1**, **nusrath0631** and **SAMI**.
 
 ```text
 lib/
-  main.dart                    App entry point and intro screens
-  splash_screen.dart           Shown on launch before the intro
+  main.dart                      App entry point and intro screens
+  splash_screen.dart             Shown on launch before the intro
   models/
-    app_models.dart            Doctors, appointments, and summaries
-    checkup_report.dart        Doctor-authored checkup report model
-    medical_history.dart       Patient medical history
-    prescription_models.dart   Prescriptions, medications, tests, history, dose logs
+    app_models.dart              Doctors, appointments, and summaries
+    checkup_report.dart          Doctor-authored checkup report model
+    medical_history.dart         Patient medical history
+    prescription_models.dart     Prescriptions, medications, tests, history, dose logs
   services/
-    auth_service.dart          Sign up, log in and the current user
-    checkup_report_store.dart  Checkup report access, validation, and storage
-    clinic_store.dart          Doctors, open hours and bookings
-    medical_history_store.dart Patient medical history and access checks
-    prescription_store.dart    Prescriptions, access, history and dose logs
-    reminder_service.dart      Schedules local notifications with the OS
+    auth_service.dart            Sign up, log in and the current user
+    checkup_report_store.dart    Checkup report access, validation, and storage
+    clinic_store.dart            Doctors, open hours and bookings
+    medical_history_store.dart   Patient medical history and access checks
+    prescription_store.dart      Prescriptions, access, history and dose logs
+    reminder_schedule_store.dart Custom daily medicine reminder hours
+    reminder_service.dart        Schedules local notifications with the OS
   utils/
-    allergy_check.dart         Matches medicine names against listed allergies
-    app_colors.dart            Text colours chosen for contrast
-    bmi.dart                   BMI calculation and height/weight checks
-    file_kind.dart             PDF, image or other from a file path
-    formatters.dart            Date and time formatting
-    password_strength.dart     Password strength scoring and tips
-    reminder_planner.dart      Works out when reminders should fire
-    validators.dart            Form field checks
+    allergy_check.dart           Matches medicine names against listed allergies
+    app_colors.dart              Text colours chosen for contrast
+    bmi.dart                     BMI calculation and height/weight checks
+    file_kind.dart               PDF, image or other from a file path
+    formatters.dart              Date and time formatting
+    password_strength.dart       Password strength scoring and tips
+    reminder_planner.dart        Works out when reminders should fire
+    validators.dart              Form field checks
   widgets/
     allergy_warning_dialog.dart  Warns the doctor before saving a matching medicine
     approval_note_dialog.dart    Optional note when approving a request
@@ -80,9 +80,9 @@ lib/
     password_strength_meter.dart Strength bar shown under the password field
     reason_dialog.dart           Reason picker used when rejecting or cancelling
   screens/
-    *_screen.dart / *.dart     The app's screens and home tabs
+    *_screen.dart / *.dart       The app's screens and home tabs
 test/
-  *_test.dart                  Unit and widget tests
+  *_test.dart                    Unit and widget tests
 ```
 
 ---

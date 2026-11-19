@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../models/prescription_models.dart';
 import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
+import '../services/reminder_schedule_store.dart';
 import '../utils/formatters.dart';
 import 'checkup_reports_screen.dart';
 import 'create_prescription_screen.dart';
@@ -18,7 +19,7 @@ import '../widgets/open_file_helper.dart';
 
 // Shared screen for viewing a patient's prescriptions, medications, and records.
 // - A patient views their own medications, logs doses (Taken/Missed), uploads external PDFs,
-//   and manages doctor access.
+//   customizes daily reminder hours, and manages doctor access.
 // - A verified doctor with access can create prescriptions, edit/remove medications,
 //   and inspect medical history, test results, version history, and checkup reports.
 class PrescriptionsScreen extends StatefulWidget {
@@ -44,6 +45,113 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // Formats an hour integer like 9 -> "09:00" or 21 -> "21:00".
+  String _formatHour(int hour) {
+    final hh = hour.toString().padLeft(2, '0');
+    return '$hh:00';
+  }
+
+  // Opens a dialog allowing the patient to customize reminder hours per daily frequency.
+  Future<void> _openReminderTimesDialog() async {
+    int selectedFreq = 2;
+    List<int> draftHours = List<int>.from(reminderScheduleStore.hoursFor(selectedFreq));
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          void selectFreq(int f) {
+            selectedFreq = f;
+            draftHours = List<int>.from(reminderScheduleStore.hoursFor(f));
+            setDialogState(() {});
+          }
+
+          Future<void> pickSlot(int slotIndex) async {
+            final initialHour = draftHours[slotIndex];
+            final picked = await showTimePicker(
+              context: ctx,
+              initialTime: TimeOfDay(hour: initialHour, minute: 0),
+              helpText: 'Pick reminder hour (snap to hour)',
+            );
+            if (picked != null) {
+              draftHours[slotIndex] = picked.hour;
+              setDialogState(() {});
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('Medicine Reminder Times'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Choose daily reminder hours by how often a medicine is taken:',
+                    style: TextStyle(fontSize: 13, color: kTextMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (int f = 1; f <= 4; f++)
+                        ChoiceChip(
+                          label: Text('${f}x/day'),
+                          selected: selectedFreq == f,
+                          onSelected: (_) => selectFreq(f),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  for (int i = 0; i < draftHours.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: OutlinedButton.icon(
+                        onPressed: () => pickSlot(i),
+                        icon: const Icon(Icons.alarm, size: 18),
+                        label: Text('Dose ${i + 1}: ${_formatHour(draftHours[i])}'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  reminderScheduleStore.resetToDefault(timesPerDay: selectedFreq);
+                  draftHours = List<int>.from(reminderScheduleStore.hoursFor(selectedFreq));
+                  setDialogState(() {});
+                },
+                child: const Text('Reset'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  try {
+                    reminderScheduleStore.setHoursFor(selectedFreq, draftHours);
+                    Navigator.pop(ctx);
+                    _refresh();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Updated ${selectedFreq}x/day reminder schedule.'),
+                      ),
+                    );
+                  } on ReminderScheduleException catch (e) {
+                    _showError(e.message);
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   // Records whether the patient took or missed a dose and updates remaining doses.
@@ -190,6 +298,10 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     final doctorLabel = (entry.doctorName == null || entry.doctorName!.isEmpty)
         ? 'Doctor'
         : entry.doctorName!;
+    final activeHours = reminderScheduleStore
+        .hoursFor(m.timesPerDay)
+        .map(_formatHour)
+        .join(', ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -218,7 +330,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${m.timesPerDay} time(s) a day • ${m.remainingDoses} doses left',
+            '${m.timesPerDay} time(s) a day ($activeHours) • ${m.remainingDoses} doses left',
             style: TextStyle(color: Colors.grey[800]),
           ),
           if (m.instructions.isNotEmpty) ...[
@@ -338,6 +450,12 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         elevation: 0,
         title: const Text('Prescriptions & History'),
         actions: [
+          if (isPatient)
+            IconButton(
+              icon: const Icon(Icons.alarm_outlined),
+              tooltip: 'Reminder times',
+              onPressed: _openReminderTimesDialog,
+            ),
           if (canView)
             IconButton(
               icon: const Icon(Icons.assignment_outlined),

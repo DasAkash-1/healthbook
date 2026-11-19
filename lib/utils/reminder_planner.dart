@@ -1,8 +1,18 @@
 import '../models/app_models.dart';
 import '../models/prescription_models.dart';
-import 'formatters.dart';
 
-// A notification the app wants the phone to show at a set time.
+// How many days ahead we plan local notifications so we don't schedule infinite timers.
+const int kReminderDaysAhead = 7;
+
+// Default daily reminder hours keyed by how many times per day a medicine is taken.
+const Map<int, List<int>> kDefaultDoseHoursByFrequency = {
+  1: [9],
+  2: [9, 21],
+  3: [9, 14, 21],
+  4: [9, 13, 17, 21],
+};
+
+// Represents a single scheduled reminder notification at [time].
 class PlannedReminder {
   final DateTime time;
   final String title;
@@ -15,96 +25,112 @@ class PlannedReminder {
   });
 }
 
-// Hours of the day for each dose, by doses per day.
-const Map<int, List<int>> kDoseHours = {
-  1: [9],
-  2: [9, 21],
-  3: [8, 14, 20],
-  4: [8, 12, 16, 20],
-};
+// Returns sorted daily dose hours for [timesPerDay], using custom overrides if valid.
+List<int> _hoursForFrequency(
+  int timesPerDay, {
+  Map<int, List<int>>? customHoursByFrequency,
+}) {
+  final custom = customHoursByFrequency?[timesPerDay];
+  if (custom != null && custom.length == timesPerDay) {
+    final valid = custom.where((h) => h >= 0 && h <= 23).toSet().toList()..sort();
+    if (valid.length == timesPerDay) {
+      return valid;
+    }
+  }
+  return kDefaultDoseHoursByFrequency[timesPerDay] ?? const [9];
+}
 
-// How many days ahead reminders are planned. They are planned again whenever the
-// patient opens the app, so opening it keeps them going.
-const int kReminderDaysAhead = 7;
-
-// The phone can only hold a limited number of scheduled notifications.
-const int kMaxReminders = 150;
-
-// Works out which reminders the phone should show for one patient.
-//
-// - Medicines: one reminder per dose at the times in [kDoseHours], for as many doses
-//   as the patient has left. Medicines due at the same time share one notification.
-// - Appointments: for approved visits, one reminder a day before and one an hour before.
-//
-// This only plans. Scheduling them on the phone is done by ReminderService.
+// Computes upcoming medicine and approved-appointment reminders starting from [now].
+// Medicines due at the exact same timestamp are combined into one notification.
 List<PlannedReminder> planReminders({
   required DateTime now,
   required List<Medication> medications,
   required List<Appointment> appointments,
   required String Function(String doctorId) doctorName,
+  Map<int, List<int>>? customHoursByFrequency,
 }) {
-  final reminders = <PlannedReminder>[];
+  final endWindow = now.add(const Duration(days: kReminderDaysAhead));
 
-  // Medicines: collect the names due at each time.
-  final due = <DateTime, List<String>>{};
-  for (final m in medications) {
-    final hours = kDoseHours[m.timesPerDay];
-    if (hours == null || m.remainingDoses <= 0) continue;
+  // Group medicine labels ("Metformin 500 mg") by exact scheduled DateTime.
+  final Map<DateTime, List<String>> groupedMeds = {};
 
-    var left = m.remainingDoses;
-    for (var day = 0; day < kReminderDaysAhead && left > 0; day++) {
+  for (final med in medications) {
+    if (med.remainingDoses <= 0) continue;
+
+    final hours = _hoursForFrequency(
+      med.timesPerDay,
+      customHoursByFrequency: customHoursByFrequency,
+    );
+
+    int dosesPlanned = 0;
+    // Loop strictly within [0, kReminderDaysAhead - 1] so slots stay inside endWindow.
+    for (int dayOffset = 0; dayOffset < kReminderDaysAhead; dayOffset++) {
+      if (dosesPlanned >= med.remainingDoses) break;
+
+      final day = DateTime(now.year, now.month, now.day + dayOffset);
       for (final hour in hours) {
-        if (left <= 0) break;
-        final time = DateTime(now.year, now.month, now.day + day, hour);
-        if (!time.isAfter(now)) continue;
-        due.putIfAbsent(time, () => []).add('${m.name} ${m.dose}'.trim());
-        left--;
+        if (dosesPlanned >= med.remainingDoses) break;
+
+        final slot = DateTime(day.year, day.month, day.day, hour);
+        // Skip times already passed or outside the planning window.
+        if (!slot.isAfter(now)) continue;
+        if (!slot.isBefore(endWindow)) continue;
+
+        final label = med.dose.trim().isEmpty
+            ? med.name.trim()
+            : '${med.name.trim()} ${med.dose.trim()}';
+        groupedMeds.putIfAbsent(slot, () => <String>[]).add(label);
+        dosesPlanned++;
       }
     }
   }
-  due.forEach((time, names) {
+
+  final List<PlannedReminder> reminders = [];
+
+  for (final entry in groupedMeds.entries) {
     reminders.add(
       PlannedReminder(
-        time: time,
+        time: entry.key,
         title: 'Time for your medicine',
-        body: names.join(', '),
+        body: entry.value.join(', '),
       ),
     );
-  });
+  }
 
-  // Appointments.
-  for (final a in appointments) {
-    if (a.status != AppointmentStatus.approved || !a.start.isAfter(now)) continue;
+  // Plan reminders for upcoming approved appointments (1 day before & 1 hour before).
+  for (final appt in appointments) {
+    if (appt.status != AppointmentStatus.approved) continue;
+    if (!appt.end.isAfter(now)) continue;
 
-    final details =
-        '${doctorName(a.doctorId)} • ${formatDay(a.start)} • ${formatSlot(a.start)}';
-    final note = a.approvalNote.isEmpty
+    final docName = doctorName(appt.doctorId);
+    final noteSuffix = appt.approvalNote.trim().isEmpty
         ? ''
-        : '\nNote from the doctor: ${a.approvalNote}';
+        : ' - ${appt.approvalNote.trim()}';
 
-    final dayBefore = a.start.subtract(const Duration(hours: 24));
-    if (dayBefore.isAfter(now)) {
+    final dayBefore = appt.start.subtract(const Duration(days: 1));
+    if (dayBefore.isAfter(now) && dayBefore.isBefore(endWindow)) {
       reminders.add(
         PlannedReminder(
           time: dayBefore,
           title: 'Appointment tomorrow',
-          body: '$details$note',
+          body: 'With $docName$noteSuffix',
         ),
       );
     }
 
-    final hourBefore = a.start.subtract(const Duration(hours: 1));
-    if (hourBefore.isAfter(now)) {
+    final hourBefore = appt.start.subtract(const Duration(hours: 1));
+    if (hourBefore.isAfter(now) && hourBefore.isBefore(endWindow)) {
       reminders.add(
         PlannedReminder(
           time: hourBefore,
           title: 'Appointment in 1 hour',
-          body: details,
+          body: 'With $docName$noteSuffix',
         ),
       );
     }
   }
 
+  // Keep all reminders in chronological order.
   reminders.sort((a, b) => a.time.compareTo(b.time));
-  return reminders.take(kMaxReminders).toList();
+  return reminders;
 }
