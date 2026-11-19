@@ -39,6 +39,12 @@ class _IntroScreenState extends State<IntroScreen> {
   final PageController _pageController = PageController();
   int _currentIdx = 0;
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   final List<Widget> _pages = [
     IntroComponent(
       title: "Your Health Hub",

@@ -89,6 +89,29 @@ void main() {
       store.grantAccess(patient, verifiedDoctor);
       addMed(verifiedDoctor);
       expect(store.medicationsFor(patient).single.name, 'Metformin');
+      expect(store.prescribedMedicationsFor(patient).single.doctorName, 'Dr. Verified');
+    });
+
+    test('a recommended test with an empty name is rejected', () {
+      approve(verifiedDoctor);
+      store.grantAccess(patient, verifiedDoctor);
+      expect(
+        () => store.createPrescription(
+          patientId: patient,
+          doctorId: verifiedDoctor,
+          medications: const [],
+          recommendedTests: [
+            RecommendedTest(
+              id: '',
+              name: '   ',
+              recommendingDoctorId: verifiedDoctor,
+              recommendingDoctorName: 'Dr. Verified',
+              recommendedAt: DateTime.now(),
+            ),
+          ],
+        ),
+        throwsA(isA<PrescriptionException>()),
+      );
     });
 
     test('a doctor without access cannot add a medication', () {
@@ -122,12 +145,15 @@ void main() {
         doctorId: verifiedDoctor,
         updated: Medication(
           id: med.id,
-          name: 'Metformin XR',
-          dose: '500 mg',
+          name: '  Metformin XR  ',
+          dose: ' 500 mg ',
           timesPerDay: 2,
           remainingDoses: 10,
         ),
       );
+
+      expect(store.medicationsFor(patient).single.name, 'Metformin XR');
+      expect(store.medicationsFor(patient).single.dose, '500 mg');
 
       final history = store.historyFor(patient, patient);
       expect(history.length, 2);
@@ -269,7 +295,7 @@ void main() {
       expect(store.medicationsFor(patient), isEmpty);
     });
 
-    test('editing a medication resets doses left to the doctor\'s number', () {
+    test("editing a medication resets doses left to the doctor's number", () {
       setUpDoctorWithAccess();
       final med = addMed(verifiedDoctor, remaining: 10);
       store.logDose(patientId: patient, medicationId: med.id, taken: true);

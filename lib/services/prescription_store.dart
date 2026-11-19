@@ -14,6 +14,19 @@ class PrescriptionException implements Exception {
 const int kMinTimesPerDay = 1;
 const int kMaxTimesPerDay = 4;
 
+// Pairs a medication with the prescription record that issued it.
+class PrescribedMedicationEntry {
+  final Medication medication;
+  final String? doctorName;
+  final DateTime prescribedDate;
+
+  const PrescribedMedicationEntry({
+    required this.medication,
+    required this.doctorName,
+    required this.prescribedDate,
+  });
+}
+
 // In-memory prescriptions. Replace with a Firebase version later, keeping the same methods.
 //
 // TODO(backend): every method below that reads or changes the maps should become a
@@ -22,6 +35,7 @@ const int kMaxTimesPerDay = 4;
 // this file must also be enforced on the server, not only here.
 class PrescriptionStore {
   final ClinicStore _clinic;
+  final DateTime Function() _clock;
 
   final Map<String, List<PrescriptionRecord>> _records = {}; // patientId -> prescription records
   final Map<String, List<PrescriptionVersion>> _history = {}; // patientId -> doctor changes
@@ -31,7 +45,10 @@ class PrescriptionStore {
   int _nextTestId = 1;
   int _nextRecordId = 1;
 
-  PrescriptionStore(this._clinic);
+  PrescriptionStore(this._clinic, {DateTime Function()? clock})
+      : _clock = clock ?? DateTime.now;
+
+  DateTime _now() => _clock();
 
   // ---------- Access (patient) ----------
 
@@ -91,6 +108,23 @@ class PrescriptionStore {
     return List.unmodifiable(meds);
   }
 
+  List<PrescribedMedicationEntry> prescribedMedicationsFor(String patientId) {
+    final recs = _records[patientId] ?? const <PrescriptionRecord>[];
+    final entries = <PrescribedMedicationEntry>[];
+    for (final r in recs) {
+      if (!r.isExternal) {
+        for (final m in r.medications) {
+          entries.add(PrescribedMedicationEntry(
+            medication: m,
+            doctorName: r.doctorName,
+            prescribedDate: r.date,
+          ));
+        }
+      }
+    }
+    return List.unmodifiable(entries);
+  }
+
   List<RecommendedTest> recommendedTestsFor(String patientId) {
     final recs = _records[patientId] ?? const <PrescriptionRecord>[];
     final tests = <RecommendedTest>[];
@@ -140,7 +174,7 @@ class PrescriptionStore {
     versions.add(
       PrescriptionVersion(
         number: versions.length + 1,
-        at: DateTime.now(),
+        at: _now(),
         byName: _clinic.doctorById(doctorId)?.name ?? 'Doctor',
         summary: summary,
       ),
@@ -165,6 +199,12 @@ class PrescriptionStore {
     }
   }
 
+  void _validateRecommendedTest(RecommendedTest t) {
+    if (t.name.trim().isEmpty) {
+      throw PrescriptionException('Enter the test name.');
+    }
+  }
+
   // TODO(backend): save the record and its history entry together in one database write.
   PrescriptionRecord createPrescription({
     required String patientId,
@@ -179,8 +219,12 @@ class PrescriptionStore {
     for (final m in medications) {
       _validateMedication(m);
     }
+    for (final t in recommendedTests) {
+      _validateRecommendedTest(t);
+    }
 
     final doctorName = _clinic.doctorById(doctorId)?.name ?? 'Doctor';
+    final now = _now();
 
     final processedMeds = medications.map((m) => Medication(
       id: m.id.isEmpty ? 'med-${_nextMedId++}' : m.id,
@@ -198,7 +242,7 @@ class PrescriptionStore {
       status: 'Pending',
       recommendingDoctorId: doctorId,
       recommendingDoctorName: doctorName,
-      recommendedAt: DateTime.now(),
+      recommendedAt: now,
     )).toList();
 
     final record = PrescriptionRecord(
@@ -206,7 +250,7 @@ class PrescriptionStore {
       patientId: patientId,
       doctorId: doctorId,
       doctorName: doctorName,
-      date: DateTime.now(),
+      date: now,
       medications: processedMeds,
       recommendedTests: processedTests,
       isExternal: false,
@@ -266,11 +310,20 @@ class PrescriptionStore {
       throw PrescriptionException('Medication not found.');
     }
 
+    final cleaned = Medication(
+      id: updated.id,
+      name: updated.name.trim(),
+      dose: updated.dose.trim(),
+      timesPerDay: updated.timesPerDay,
+      instructions: updated.instructions.trim(),
+      remainingDoses: updated.remainingDoses,
+    );
+
     bool found = false;
     for (final r in recs) {
-      final index = r.medications.indexWhere((m) => m.id == updated.id);
+      final index = r.medications.indexWhere((m) => m.id == cleaned.id);
       if (index != -1) {
-        r.medications[index] = updated;
+        r.medications[index] = cleaned;
         found = true;
         break;
       }
@@ -278,7 +331,7 @@ class PrescriptionStore {
     if (!found) {
       throw PrescriptionException('Medication not found.');
     }
-    _recordVersion(patientId, doctorId, 'Updated medication ${updated.name}');
+    _recordVersion(patientId, doctorId, 'Updated medication ${cleaned.name}');
   }
 
   // TODO(backend): delete the medication and add the history entry in one database write.
@@ -318,7 +371,7 @@ class PrescriptionStore {
     final record = PrescriptionRecord(
       id: 'ext-${_nextRecordId++}',
       patientId: patientId,
-      date: DateTime.now(),
+      date: _now(),
       isExternal: true,
       externalFileName: fileName.trim(),
       externalFilePath: filePath.trim(),
@@ -358,7 +411,7 @@ class PrescriptionStore {
           status: 'Result Uploaded',
           uploadedFileName: fileName.trim(),
           uploadedFilePath: filePath.trim(),
-          uploadedAt: DateTime.now(),
+          uploadedAt: _now(),
         );
         updated = true;
         break;
@@ -401,7 +454,7 @@ class PrescriptionStore {
     }
 
     _doseLogs.putIfAbsent(patientId, () => <DoseLog>[]).add(
-          DoseLog(medicationId: medicationId, at: DateTime.now(), taken: taken),
+          DoseLog(medicationId: medicationId, at: _now(), taken: taken),
         );
   }
 }

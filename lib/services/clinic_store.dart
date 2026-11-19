@@ -18,6 +18,7 @@ const int kBookingWindowDays = 7;
 const Duration kBookingGap = Duration(hours: 1);
 
 DateTime _dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
+DateTime _hourStart(DateTime d) => DateTime(d.year, d.month, d.day, d.hour);
 
 // In-memory clinic data. Replace with a Firebase version later, keeping the same methods.
 //
@@ -79,7 +80,12 @@ class ClinicStore {
 
   // TODO(backend): save the doctor profile in the database.
   void addDoctor(Doctor doctor) {
-    _doctors.add(doctor);
+    final idx = _doctors.indexWhere((d) => d.id == doctor.id);
+    if (idx != -1) {
+      _doctors[idx] = doctor;
+    } else {
+      _doctors.add(doctor);
+    }
   }
 
   bool isVerified(String doctorId) => _verified.contains(doctorId);
@@ -124,8 +130,9 @@ class ClinicStore {
   }
 
   bool _isBooked(String doctorId, DateTime hour) {
+    final normalized = _hourStart(hour);
     return _appointments.any(
-      (a) => a.doctorId == doctorId && a.isActive && a.start == hour,
+      (a) => a.doctorId == doctorId && a.isActive && a.start == normalized,
     );
   }
 
@@ -134,7 +141,7 @@ class ClinicStore {
   }
 
   bool isHourOpen(String doctorId, DateTime hour) {
-    return _openHours[doctorId]?.contains(hour) ?? false;
+    return _openHours[doctorId]?.contains(_hourStart(hour)) ?? false;
   }
 
   // Open hours on the given day that are still free to book.
@@ -167,21 +174,22 @@ class ClinicStore {
   // Opens or closes one hour. Closing is refused if that hour has bookings.
   // TODO(backend): save the open or closed hour in the database.
   void setHourOpen(String doctorId, DateTime hour, bool open) {
+    final normalized = _hourStart(hour);
     final hours = _openHours.putIfAbsent(doctorId, () => <DateTime>{});
     if (open) {
-      if (!_inBookingWindow(hour)) {
+      if (!_inBookingWindow(normalized)) {
         throw BookingException(
           'Hours can only be set up to $kBookingWindowDays days ahead.',
         );
       }
-      hours.add(hour);
+      hours.add(normalized);
     } else {
-      if (_isBooked(doctorId, hour)) {
+      if (_isBooked(doctorId, normalized)) {
         throw BookingException(
           'This hour has booked appointments and cannot be freed.',
         );
       }
-      hours.remove(hour);
+      hours.remove(normalized);
     }
   }
 
@@ -232,6 +240,7 @@ class ClinicStore {
     String note = '',
     String patientName = '',
   }) {
+    final normalizedStart = _hourStart(start);
     if (doctorById(doctorId) == null) {
       throw BookingException('Doctor not found.');
     }
@@ -243,13 +252,13 @@ class ClinicStore {
     if (visitType.isNotEmpty && !kVisitTypes.contains(visitType)) {
       throw BookingException('Choose a visit type from the list.');
     }
-    if (!_inBookingWindow(start)) {
+    if (!_inBookingWindow(normalizedStart)) {
       throw BookingException('This time is outside the booking window.');
     }
-    if (!isHourOpen(doctorId, start)) {
+    if (!isHourOpen(doctorId, normalizedStart)) {
       throw BookingException('This time is no longer available.');
     }
-    if (_isBooked(doctorId, start)) {
+    if (_isBooked(doctorId, normalizedStart)) {
       throw BookingException('This slot has already been booked.');
     }
     // One upcoming booking per doctor, so other patients get a chance too.
@@ -259,10 +268,10 @@ class ClinicStore {
       );
     }
     // No second visit with the same doctor on the same day.
-    if (_hasBookingWithOnDay(patientId, doctorId, start)) {
+    if (_hasBookingWithOnDay(patientId, doctorId, normalizedStart)) {
       throw BookingException('You already have a visit with this doctor on that day.');
     }
-    if (!_respectsGap(patientId, doctorId, start)) {
+    if (!_respectsGap(patientId, doctorId, normalizedStart)) {
       throw BookingException(
         'You can book with another doctor one hour after your current appointment ends.',
       );
@@ -273,7 +282,7 @@ class ClinicStore {
       patientId: patientId,
       patientName: patientName,
       doctorId: doctorId,
-      start: start,
+      start: normalizedStart,
       visitType: visitType,
       note: note,
     );

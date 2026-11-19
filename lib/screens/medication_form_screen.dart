@@ -37,7 +37,9 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     _nameCtrl = TextEditingController(text: m?.name ?? '');
     _doseCtrl = TextEditingController(text: m?.dose ?? '');
     _instructionsCtrl = TextEditingController(text: m?.instructions ?? '');
-    _remainingCtrl = TextEditingController(text: (m?.remainingDoses ?? 30).toString());
+    _remainingCtrl = TextEditingController(
+      text: m != null ? m.remainingDoses.toString() : '',
+    );
     _timesPerDay = m?.timesPerDay ?? 1;
   }
 
@@ -117,6 +119,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   Widget _field({
     required TextEditingController controller,
     required String label,
+    String? hint,
     TextInputType? keyboardType,
     int maxLines = 1,
   }) {
@@ -128,6 +131,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hint,
           filled: true,
           fillColor: Colors.grey.shade100,
           border: OutlineInputBorder(
@@ -185,7 +189,10 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
             ),
             _field(
               controller: _remainingCtrl,
-              label: isEdit ? 'Doses left (replaces the patient\'s current count)' : 'Doses left',
+              label: isEdit
+                  ? "Doses left (replaces the patient's current count)"
+                  : 'Doses left',
+              hint: 'e.g. 30',
               keyboardType: TextInputType.number,
             ),
             _field(

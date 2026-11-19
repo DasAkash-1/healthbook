@@ -34,6 +34,11 @@ void main() {
       );
     });
 
+    test('finds short 3-letter allergens like ASA, Egg, or Soy', () {
+      expect(matchingAllergies('ASA 75 mg', 'ASA (Aspirin)'), ['ASA (Aspirin)']);
+      expect(matchingAllergies('Egg lecithin capsule', 'Egg'), ['Egg']);
+    });
+
     test('finds nothing when the allergy is unrelated', () {
       expect(matchingAllergies('Metformin 500 mg', 'Peanuts, Latex'), isEmpty);
     });

@@ -178,7 +178,12 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     }
   }
 
-  Widget _medicationCard(Medication m) {
+  Widget _medicationCard(PrescribedMedicationEntry entry) {
+    final m = entry.medication;
+    final doctorLabel = (entry.doctorName == null || entry.doctorName!.isEmpty)
+        ? 'Doctor'
+        : entry.doctorName!;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -198,6 +203,11 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Prescribed by $doctorLabel • ${formatDay(entry.prescribedDate)}',
+            style: const TextStyle(fontSize: 13, color: kTextMuted),
           ),
           const SizedBox(height: 4),
           Text(
@@ -390,7 +400,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   }
 
   Widget _buildBody(bool isPatient) {
-    final medications = prescriptionStore.medicationsFor(widget.patientId);
+    final medicationEntries = prescriptionStore.prescribedMedicationsFor(widget.patientId);
     final externalRecords = prescriptionStore.externalPrescriptionsFor(widget.patientId);
 
     return ListView(
@@ -417,9 +427,9 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Upload previous prescriptions from doctors outside HealthBook so your current doctor can review them.',
-            style: const TextStyle(color: kTextMuted, fontSize: 14),
+            style: TextStyle(color: kTextMuted, fontSize: 14),
           ),
           const SizedBox(height: 16),
         ],
@@ -439,7 +449,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0D1B2A)),
         ),
         const SizedBox(height: 10),
-        if (medications.isEmpty)
+        if (medicationEntries.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
@@ -453,7 +463,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
             ),
           )
         else
-          for (final m in medications) _medicationCard(m),
+          for (final entry in medicationEntries) _medicationCard(entry),
       ],
     );
   }

@@ -79,8 +79,15 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
       final m = _medications[i];
       final name = m.nameCtrl.text.trim();
       final dose = m.doseCtrl.text.trim();
+      final remainingRaw = m.remainingCtrl.text.trim();
+      final instructions = m.instructionsCtrl.text.trim();
 
-      if (name.isNotEmpty || dose.isNotEmpty) {
+      final hasAnyInput = name.isNotEmpty ||
+          dose.isNotEmpty ||
+          remainingRaw.isNotEmpty ||
+          instructions.isNotEmpty;
+
+      if (hasAnyInput) {
         if (name.isEmpty) {
           _showError('Medication #${i + 1}: Enter the medicine name.');
           return;
@@ -90,7 +97,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
           return;
         }
         // No silent default: a wrong number here would put wrong data in a prescription.
-        final remaining = int.tryParse(m.remainingCtrl.text.trim());
+        final remaining = int.tryParse(remainingRaw);
         if (remaining == null || remaining < 0) {
           _showError(
             'Medication #${i + 1}: Doses left must be a whole number, such as 30.',
@@ -102,7 +109,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
           name: name,
           dose: dose,
           timesPerDay: m.timesPerDay,
-          instructions: m.instructionsCtrl.text.trim(),
+          instructions: instructions,
           remainingDoses: remaining,
         ));
       }
@@ -113,9 +120,15 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
     for (int i = 0; i < _tests.length; i++) {
       final t = _tests[i];
       final name = t.nameCtrl.text.trim();
+      final instructions = t.instructionsCtrl.text.trim();
+
+      if (name.isEmpty && instructions.isNotEmpty) {
+        _showError('Test #${i + 1}: Enter the test name.');
+        return;
+      }
 
       if (name.isNotEmpty) {
-        testListAdd(testsList, name, t.instructionsCtrl.text.trim());
+        testListAdd(testsList, name, instructions);
       }
     }
 
@@ -202,7 +215,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
             ),
             const SizedBox(height: 8),
             if (_medications.isEmpty)
-              Text('No medications added. Click "Add Medicine" above.', style: const TextStyle(color: kTextMuted)),
+              const Text('No medications added. Click "Add Medicine" above.', style: TextStyle(color: kTextMuted)),
             for (int i = 0; i < _medications.length; i++)
               _buildMedicationCard(i),
 
@@ -225,7 +238,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
             ),
             const SizedBox(height: 8),
             if (_tests.isEmpty)
-              Text('No tests recommended. Click "Add Test" above.', style: const TextStyle(color: kTextMuted)),
+              const Text('No tests recommended. Click "Add Test" above.', style: TextStyle(color: kTextMuted)),
             for (int i = 0; i < _tests.length; i++)
               _buildTestCard(i),
 
@@ -263,11 +276,10 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Medicine #${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF102A66))),
-              if (_medications.length > 1)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                  onPressed: () => _removeMedicationRow(index),
-                ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                onPressed: () => _removeMedicationRow(index),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -301,6 +313,7 @@ class _CreatePrescriptionScreenState extends State<CreatePrescriptionScreen> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Doses left',
+                    hintText: 'e.g. 30',
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -401,7 +414,7 @@ class _MedicationInputData {
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController doseCtrl = TextEditingController();
   final TextEditingController instructionsCtrl = TextEditingController();
-  final TextEditingController remainingCtrl = TextEditingController(text: '30');
+  final TextEditingController remainingCtrl = TextEditingController();
   int timesPerDay = 1;
 
   void dispose() {

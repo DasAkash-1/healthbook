@@ -23,11 +23,18 @@ const Set<String> _ignoredWords = {
   'known',
   'severe',
   'mild',
+  'and',
+  'the',
+  'for',
+  'not',
+  'yes',
+  'any',
 };
 
-// Lower-case words of 4 or more letters, so "500", "mg" and "to" are skipped.
+// Lower-case words of 3 or more letters, so "500", "mg" and "to" are skipped
+// while short allergens/abbreviations like "egg", "soy" or "asa" are caught.
 List<String> _words(String text) {
-  return RegExp(r'[a-z]{4,}')
+  return RegExp(r'[a-z]{3,}')
       .allMatches(text)
       .map((m) => m.group(0)!)
       .where((w) => !_ignoredWords.contains(w))
