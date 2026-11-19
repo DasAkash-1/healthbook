@@ -1,3 +1,5 @@
+// Searchable, filterable doctor directory ordering verified doctors ahead of
+// pending/unverified doctors and opening DoctorDetailScreen to book slots.
 import 'package:flutter/material.dart';
 
 import '../services/clinic_store.dart';

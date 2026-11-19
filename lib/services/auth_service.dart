@@ -5,12 +5,12 @@ import '../models/medical_history.dart';
 import 'clinic_store.dart';
 import 'medical_history_store.dart';
 
-// Demo accounts for testing. Created only in debug builds.
+// Seeded test credentials used only in debug builds so developers/testers can sign in quickly.
 const String kDemoPassword = 'Demo1234';
 const String kDemoPatientEmail = 'demo.patient@healthbook.test';
 const String kDemoDoctorEmail = 'demo.doctor@healthbook.test';
 
-// Details collected on the second registration step.
+// Additional profile fields collected during account registration.
 class UserProfile {
   final String name;
   final String phone;
@@ -29,6 +29,7 @@ class UserProfile {
   });
 }
 
+// Domain error thrown for invalid registration or login attempts.
 class AuthException implements Exception {
   final String message;
   AuthException(this.message);
@@ -37,6 +38,8 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+// Abstract authentication contract so the app can swap FakeAuthService
+// for a real backend authentication service later without changing UI code.
 abstract class AuthService {
   AppUser? get currentUser;
 
@@ -55,6 +58,7 @@ abstract class AuthService {
   void logout();
 }
 
+// Internal record pairing an in-memory password with an AppUser profile.
 class _Account {
   final String password;
   final AppUser user;
@@ -127,6 +131,9 @@ class FakeAuthService implements AuthService {
   @override
   AppUser? get currentUser => _current;
 
+  // Validates role-specific fields, creates the account in memory, and seeds
+  // initial patient medical history or unverified doctor directory profile.
+  //
   // TODO(backend): create the account with the real login service and save the profile
   // (name, phone, date of birth, specialty, license number, medical history) in the database.
   @override
@@ -187,6 +194,8 @@ class FakeAuthService implements AuthService {
     }
   }
 
+  // Authenticates a user by normalized email + password and sets [currentUser].
+  //
   // TODO(backend): sign in with the real login service and load the user's profile.
   @override
   Future<AppUser> login({
@@ -205,6 +214,8 @@ class FakeAuthService implements AuthService {
     return account.user;
   }
 
+  // Clears the active session.
+  //
   // TODO(backend): sign out of the real login service.
   @override
   void logout() {

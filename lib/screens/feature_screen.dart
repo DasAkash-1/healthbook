@@ -1,3 +1,5 @@
+// Shared placeholder screen displaying an empty state and an Add action
+// for upcoming features that do not yet have interactive forms.
 import 'package:flutter/material.dart';
 
 // Shared placeholder screen for features that don't have data yet.

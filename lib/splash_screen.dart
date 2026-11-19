@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+// Animated launch screen shown before the app's main/intro screen.
+// Runs a smooth entrance (fade + scale), a subtle pulsing heart/ECG emblem,
+// and then transitions to [nextScreen] after [minimumDisplayTime].
 class SplashScreen extends StatefulWidget {
   final Widget nextScreen;
   final Duration minimumDisplayTime;
@@ -18,19 +21,23 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
+  // Controls the initial entrance fade and pop-in scale animation.
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
+  // Loops continuously to gently pulse the heart/ECG ring.
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // Timer that schedules automatic navigation to [widget.nextScreen].
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
 
+    // Allow drawing behind status/navigation bars for a full-bleed splash canvas.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     _entranceController = AnimationController(
@@ -64,6 +71,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _entranceController.forward();
 
+    // Navigate smoothly after the splash display duration finishes.
     _timer = Timer(widget.minimumDisplayTime, () {
       if (!mounted) return;
 
@@ -84,6 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    // Always cancel timers and dispose animation controllers to prevent memory leaks.
     _timer?.cancel();
     _entranceController.dispose();
     _pulseController.dispose();
@@ -96,14 +105,14 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: const Color(0xFFE8EEFF),
       body: Stack(
         children: [
-          // Background grid
+          // Subtle blueprint/clinical grid drawn in the background.
           const Positioned.fill(
             child: CustomPaint(
               painter: _GridPainter(),
             ),
           ),
 
-          // Main content
+          // Centered emblem and brand title.
           Center(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -112,7 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Heart + ECG logo
+                    // Animated heart + ECG waveform emblem.
                     AnimatedBuilder(
                       animation: _pulseAnimation,
                       builder: (context, child) {
@@ -130,7 +139,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     const SizedBox(height: 30),
 
-                    // App name
+                    // Brand title.
                     const Text(
                       'Healthbook',
                       style: TextStyle(
@@ -147,7 +156,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // Small loading indicator
+          // Three static indicator dots along the bottom edge.
           Positioned(
             bottom: 60,
             left: 0,
@@ -172,6 +181,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
+// Small circular dot used in the bottom indicator row.
 class _LoadingDot extends StatelessWidget {
   const _LoadingDot();
 
@@ -188,6 +198,7 @@ class _LoadingDot extends StatelessWidget {
   }
 }
 
+// Custom painter that draws a faint evenly spaced background grid.
 class _GridPainter extends CustomPainter {
   const _GridPainter();
 
@@ -212,6 +223,7 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+// Custom painter that renders the pulsing ring, heart outline, and ECG pulse line.
 class _HeartLogoPainter extends CustomPainter {
   final double pulseValue;
 
@@ -222,7 +234,7 @@ class _HeartLogoPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final double baseRadius = 78;
 
-    // Outer circular ring with pulse
+    // Outer circular ring scaled by [pulseValue] with a blue gradient shader.
     final circlePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
@@ -237,7 +249,7 @@ class _HeartLogoPainter extends CustomPainter {
 
     canvas.drawCircle(center, baseRadius * pulseValue, circlePaint);
 
-    // Heart paint
+    // Heart stroke styling.
     final heartPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.5
@@ -245,41 +257,41 @@ class _HeartLogoPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..color = const Color(0xFF102A66);
 
-    // Centered Heart shape
+    // Build symmetrical heart path using cubic Bezier curves.
     final heartPath = Path();
     // Heart outline spans about 10px..84px below heartTop, so its visual
     // centre is ~19px lower than the old -28 offset implied. Shift up to centre it.
     final heartTop = center.dy - 47;
-    
+
     heartPath.moveTo(center.dx, heartTop + 20);
-    // Left curve
+    // Left lobe curve.
     heartPath.cubicTo(
-      center.dx - 24, heartTop, 
-      center.dx - 40, heartTop + 16, 
-      center.dx - 40, heartTop + 36
+      center.dx - 24, heartTop,
+      center.dx - 40, heartTop + 16,
+      center.dx - 40, heartTop + 36,
     );
-    // Bottom point
+    // Lower left down to bottom point.
     heartPath.cubicTo(
-      center.dx - 40, heartTop + 64, 
-      center.dx, heartTop + 84, 
-      center.dx, heartTop + 84
+      center.dx - 40, heartTop + 64,
+      center.dx, heartTop + 84,
+      center.dx, heartTop + 84,
     );
-    // Right curve
+    // Bottom point up along right lobe.
     heartPath.cubicTo(
-      center.dx, heartTop + 84, 
-      center.dx + 40, heartTop + 64, 
-      center.dx + 40, heartTop + 36
+      center.dx, heartTop + 84,
+      center.dx + 40, heartTop + 64,
+      center.dx + 40, heartTop + 36,
     );
-    // Back to top
+    // Right lobe top back to cleft.
     heartPath.cubicTo(
-      center.dx + 40, heartTop + 16, 
-      center.dx + 24, heartTop, 
-      center.dx, heartTop + 20
+      center.dx + 40, heartTop + 16,
+      center.dx + 24, heartTop,
+      center.dx, heartTop + 20,
     );
 
     canvas.drawPath(heartPath, heartPaint);
 
-    // ECG line - centered vertically at center.dy
+    // ECG heartbeat trace drawn across the heart.
     final ecgPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5
@@ -289,18 +301,18 @@ class _HeartLogoPainter extends CustomPainter {
 
     final ecgPath = Path();
     final ecgY = center.dy - 11; // Centred inside the heart (moved with it)
-    
+
     ecgPath.moveTo(center.dx - 55, ecgY);
     ecgPath.lineTo(center.dx - 25, ecgY);
-    ecgPath.lineTo(center.dx - 18, ecgY + 22); // down
-    ecgPath.lineTo(center.dx - 8, ecgY - 12);  // up
-    ecgPath.lineTo(center.dx + 2, ecgY + 5);   // small bounce
+    ecgPath.lineTo(center.dx - 18, ecgY + 22); // Q-wave downward dip
+    ecgPath.lineTo(center.dx - 8, ecgY - 12);  // R-wave upward spike
+    ecgPath.lineTo(center.dx + 2, ecgY + 5);   // S-wave small bounce
     ecgPath.lineTo(center.dx + 35, ecgY);
     ecgPath.lineTo(center.dx + 50, ecgY);
 
     canvas.drawPath(ecgPath, ecgPaint);
 
-    // ECG dots
+    // Trailing ECG dots to suggest live signal motion.
     final dotPaint = Paint()..color = const Color(0xFF102A66);
     canvas.drawCircle(Offset(center.dx + 58, ecgY), 3.5, dotPaint);
     canvas.drawCircle(Offset(center.dx + 68, ecgY), 2.5, dotPaint);

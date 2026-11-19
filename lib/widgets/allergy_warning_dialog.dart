@@ -9,6 +9,7 @@ Future<bool> confirmDespiteAllergies(
   BuildContext context,
   List<AllergyWarning> warnings,
 ) async {
+  // Displays matched medicine/allergy pairs and requires an explicit choice.
   final result = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -22,6 +23,7 @@ Future<bool> confirmDespiteAllergies(
               "The patient's medical history lists an allergy that looks like:",
             ),
             const SizedBox(height: 8),
+            // List each medicine alongside the matching allergy entries from history.
             for (final w in warnings)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -47,6 +49,7 @@ Future<bool> confirmDespiteAllergies(
         ),
       ),
       actions: [
+        // Safe default: return false when going back or dismissing.
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
           child: const Text('Go back'),

@@ -1,3 +1,5 @@
+// Multi-step registration flow for patients (3 steps: account, profile, medical history)
+// and doctors (2 steps: account, profile with specialty and license number).
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
@@ -18,12 +20,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _accountFormKey = GlobalKey<FormState>();
   final _profileFormKey = GlobalKey<FormState>();
 
-  // Step 1 fields
+  // Step 1 fields: role, email, password, and password confirmation.
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
-  // Step 2 fields
+  // Step 2 fields: personal details plus doctor-specific specialty and license.
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _dobCtrl = TextEditingController();
@@ -32,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   UserRole _role = UserRole.patient;
   String? _specialty;
 
-  // Step 3 (patients only) fields
+  // Step 3 (patients only): initial medical history.
   final _medical = MedicalHistoryControllers();
 
   int _step = 0; // 0 = account, 1 = personal details, 2 = medical history (patients)
@@ -65,6 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // Opens a date picker constrained to dates on or before today.
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -87,6 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  // Advances through steps after validating the current step's inputs.
   void _next() {
     if (_step == 0) {
       if (_accountFormKey.currentState!.validate()) setState(() => _step = 1);
@@ -106,6 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _back() => setState(() => _step = _step > 0 ? _step - 1 : 0);
 
+  // Ensures required allergies input is present before submitting patient registration.
   void _onMedicalSubmit() {
     if (_medical.allergies.text.trim().isEmpty) {
       _showMessage('Please enter your allergies, or write "None".');
@@ -114,6 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _submit();
   }
 
+  // Sends registration data to AuthService and navigates to LoginScreen on success.
   Future<void> _submit() async {
     setState(() => _loading = true);
     try {
@@ -146,7 +152,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // Reusable field. Validation runs as the user types.
+  // Reusable styled form field with live validation as the user types.
   Widget _field({
     required TextEditingController controller,
     required String label,

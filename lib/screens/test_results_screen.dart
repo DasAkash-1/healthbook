@@ -1,3 +1,5 @@
+// Screen displaying doctor-recommended diagnostic tests and allowing patients
+// to upload or view test result files (PDFs or images).
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +36,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  // Lets the patient pick a PDF or image result file and attach it to [test].
   Future<void> _uploadResult(RecommendedTest test) async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -79,6 +82,7 @@ class _TestResultsScreenState extends State<TestResultsScreen> {
     }
   }
 
+  // Opens an uploaded result file in-app (for images) or via the OS handler (for PDFs).
   void _viewResult(RecommendedTest test) {
     openUploadedFile(
       context,

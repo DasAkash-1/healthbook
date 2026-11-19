@@ -1,3 +1,5 @@
+// Patient home shell providing the health dashboard, Records summaries,
+// Appointments view, and Profile tab while refreshing local reminders.
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -66,6 +68,7 @@ class _HomePageState extends State<HomePage> {
     },
   ];
 
+  // Navigates to the selected dashboard feature and refreshes reminders/summaries on return.
   void _openFeature(Map<String, dynamic> item) {
     final title = item['title'] as String;
     final Widget screen = switch (title) {
@@ -129,6 +132,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Clears the active session and replaces the navigation stack with LoginScreen.
   void _logout() {
     authService.logout();
     Navigator.pushAndRemoveUntil(
@@ -525,6 +529,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+// Draws a subtle diagonal grid pattern behind the dashboard hero card.
 class _HeroBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

@@ -16,6 +16,7 @@ Future<String?> askForApprovalNote(
   );
 }
 
+// Stateful dialog holding the optional approval note controller until disposed.
 class _ApprovalNoteDialog extends StatefulWidget {
   final String patientName;
   final String when;
@@ -49,6 +50,7 @@ class _ApprovalNoteDialogState extends State<_ApprovalNoteDialog> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
+            // Reminds the doctor of the cancellation rule after approval.
             const Text(
               'Once approved, only the patient can cancel.',
               style: TextStyle(fontSize: 14, color: kTextMuted),
@@ -67,6 +69,7 @@ class _ApprovalNoteDialogState extends State<_ApprovalNoteDialog> {
         ),
       ),
       actions: [
+        // Returning null signals that the doctor cancelled approval.
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Back'),

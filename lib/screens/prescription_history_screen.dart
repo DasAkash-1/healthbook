@@ -1,3 +1,5 @@
+// Audit log screen showing every doctor edit/create/remove on a prescription,
+// ordered newest first. Dose logs are intentionally kept separate.
 import 'package:flutter/material.dart';
 
 import '../models/prescription_models.dart';

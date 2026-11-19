@@ -16,7 +16,7 @@ class PasswordStrengthMeter extends StatelessWidget {
     this.email = '',
   });
 
-  // The bar colour, and a darker version of it for text on white.
+  // Fill color for the progress bar across strength levels.
   static Color _barColor(PasswordStrength level) {
     switch (level) {
       case PasswordStrength.weak:
@@ -30,6 +30,7 @@ class PasswordStrengthMeter extends StatelessWidget {
     }
   }
 
+  // High-contrast label color matching each strength level on white.
   static Color _textColor(PasswordStrength level) {
     switch (level) {
       case PasswordStrength.weak:
@@ -54,6 +55,7 @@ class PasswordStrengthMeter extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Smoothly animates the meter bar width as the password changes.
           TweenAnimationBuilder<double>(
             tween: Tween<double>(end: result.fraction),
             duration: const Duration(milliseconds: 250),
@@ -84,6 +86,7 @@ class PasswordStrengthMeter extends StatelessWidget {
               ),
             ],
           ),
+          // Show at most one actionable improvement tip below the label.
           if (result.tip != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),

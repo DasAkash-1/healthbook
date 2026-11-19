@@ -1,3 +1,6 @@
+// Data models for prescriptions, medications, recommended tests, audit history, and dose logs.
+
+// A single prescribed medicine belonging to a PrescriptionRecord.
 class Medication {
   final String id;
   final String name;
@@ -15,6 +18,7 @@ class Medication {
     required this.remainingDoses,
   });
 
+  // Returns a copy with updated fields while preserving [id].
   Medication copyWith({
     String? name,
     String? dose,
@@ -33,11 +37,12 @@ class Medication {
   }
 }
 
+// A lab/diagnostic test recommended by a doctor, along with any uploaded result file.
 class RecommendedTest {
   final String id;
   final String name;
   final String instructions;
-  final String status; // 'Pending', 'Result Uploaded'
+  final String status; // 'Pending' or 'Result Uploaded'
   final String? uploadedFilePath;
   final String? uploadedFileName;
   final DateTime? uploadedAt;
@@ -58,6 +63,7 @@ class RecommendedTest {
     required this.recommendedAt,
   });
 
+  // Returns a copy with updated result file metadata while keeping test details intact.
   RecommendedTest copyWith({
     String? status,
     String? uploadedFilePath,
@@ -79,6 +85,8 @@ class RecommendedTest {
   }
 }
 
+// Represents either a doctor-issued prescription (with medications & tests)
+// or a patient-uploaded external prescription PDF ([isExternal] == true).
 class PrescriptionRecord {
   final String id;
   final String patientId;
@@ -105,7 +113,8 @@ class PrescriptionRecord {
   });
 }
 
-// One entry in a prescription's history. Only doctor changes are recorded here.
+// Audit entry recorded whenever a verified doctor creates, updates, or removes
+// prescription items. Patient dose logs are intentionally excluded from this list.
 class PrescriptionVersion {
   final int number;
   final DateTime at;
@@ -120,11 +129,15 @@ class PrescriptionVersion {
   });
 }
 
-// A dose the patient logged as taken or missed. Kept separately from the history.
+// Records a single dose event logged by the patient as taken or missed.
 class DoseLog {
   final String medicationId;
   final DateTime at;
   final bool taken;
 
-  const DoseLog({required this.medicationId, required this.at, required this.taken});
+  const DoseLog({
+    required this.medicationId,
+    required this.at,
+    required this.taken,
+  });
 }

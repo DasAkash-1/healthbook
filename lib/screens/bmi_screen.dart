@@ -1,3 +1,5 @@
+// Screen allowing users to enter height (cm) and weight (kg) to calculate
+// Body Mass Index and view its WHO adult category.
 import 'package:flutter/material.dart';
 
 import '../utils/bmi.dart';
@@ -23,6 +25,7 @@ class _BmiScreenState extends State<BmiScreen> {
     super.dispose();
   }
 
+  // Parses numeric inputs, validates ranges, and updates either [_error] or [_result].
   void _calculate() {
     final height = double.tryParse(_heightCtrl.text.trim());
     final weight = double.tryParse(_weightCtrl.text.trim());

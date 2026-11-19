@@ -1,8 +1,11 @@
+// Form field validation helpers shared across registration, login, and profile screens.
 class Validators {
   Validators._(); // not meant to be instantiated
 
+  // Minimum account age enforced across the app (13 years).
   static const int minimumAge = 13;
 
+  // Validates standard email formatting after trimming whitespace.
   static String? email(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Email is required';
@@ -11,6 +14,7 @@ class Validators {
     return null;
   }
 
+  // Enforces minimum length and character variety requirements on passwords.
   static String? password(String? value) {
     final text = value ?? '';
     if (text.isEmpty) return 'Password is required';
@@ -21,12 +25,14 @@ class Validators {
     return null;
   }
 
+  // Ensures the confirmation field matches the primary password input.
   static String? confirmPassword(String? value, String original) {
     if (value == null || value.isEmpty) return 'Please confirm your password';
     if (value != original) return 'Passwords do not match';
     return null;
   }
 
+  // Validates person names allowing Unicode letters, spaces, apostrophes, dots, and hyphens.
   static String? name(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Name is required';
@@ -37,6 +43,7 @@ class Validators {
     return null;
   }
 
+  // Validates phone numbers after stripping spaces and dashes.
   static String? phone(String? value) {
     // Spaces and dashes are removed so "017 1234-5678" is accepted.
     final text = (value ?? '').replaceAll(RegExp(r'[\s-]'), '');
@@ -47,6 +54,7 @@ class Validators {
     return null;
   }
 
+  // Rejects missing or future dates of birth and checks the 13+ minimum age rule.
   static String? dateOfBirth(DateTime? dob) {
     if (dob == null) return 'Date of birth is required';
     final today = DateTime.now();

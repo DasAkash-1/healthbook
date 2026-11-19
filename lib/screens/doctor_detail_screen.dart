@@ -1,3 +1,5 @@
+// Doctor profile and 7-day slot booking screen where patients select a day/slot,
+// enter optional visit type and note details, review the summary, and send a request.
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
@@ -97,6 +99,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     );
   }
 
+  // Runs the two-step booking flow (details -> review confirmation) and submits to ClinicStore.
   Future<void> _requestSlot(DateTime start) async {
     final user = authService.currentUser;
     if (user == null) return;

@@ -1,12 +1,13 @@
+// Shared domain enums, constants, and core models for users, doctors, and bookings.
 enum UserRole { patient, doctor }
 
 enum AppointmentStatus { pending, approved, rejected, cancelled }
 
-// Length of one appointment slot.
+// Standard duration of a single appointment slot (20 minutes).
 const Duration kSlotLength = Duration(minutes: 20);
 
-// Visit types and reasons offered on the appointment screens.
-// "Other" always means the person writes the reason themselves.
+// Visit types and reasons offered on appointment screens.
+// Choosing "Other" requires the user to type a custom reason themselves.
 const String kOtherReason = 'Other';
 
 const List<String> kVisitTypes = [
@@ -18,7 +19,7 @@ const List<String> kVisitTypes = [
   kOtherReason,
 ];
 
-// Reasons a patient can give when cancelling an approved appointment.
+// Preset reasons a patient can select when cancelling an approved appointment.
 const List<String> kPatientCancelReasons = [
   "I'm feeling better and no longer need the visit",
   "I'm sick and can't come",
@@ -29,7 +30,7 @@ const List<String> kPatientCancelReasons = [
   kOtherReason,
 ];
 
-// Reasons a doctor can give when rejecting a request.
+// Preset reasons a doctor can select when rejecting a pending booking request.
 const List<String> kDoctorRejectReasons = [
   'Fully booked that day',
   'Not taking new patients right now',
@@ -38,12 +39,13 @@ const List<String> kDoctorRejectReasons = [
   kOtherReason,
 ];
 
+// Authenticated user profile stored in memory by AuthService.
 class AppUser {
-  final String id; // lowercase email
+  final String id; // lowercase email used as unique user ID
   final String name;
   final UserRole role;
-  final String phone; // empty for the demo accounts
-  final DateTime? dateOfBirth; // null for the demo accounts
+  final String phone; // empty for seeded demo accounts
+  final DateTime? dateOfBirth; // null for seeded demo accounts
 
   const AppUser({
     required this.id,
@@ -54,6 +56,7 @@ class AppUser {
   });
 }
 
+// Doctor directory entry managed by ClinicStore.
 class Doctor {
   final String id;
   final String name;
@@ -68,21 +71,22 @@ class Doctor {
   });
 }
 
+// Represents a patient's appointment request or scheduled visit with a doctor.
 class Appointment {
   final String id;
   final String patientId;
   final String patientName;
   final String doctorId;
   final DateTime start;
-  final String visitType; // one of kVisitTypes, or empty if the patient skipped it
+  final String visitType; // one of kVisitTypes, or empty if omitted
   final String note;
   AppointmentStatus status;
 
-  // Why the doctor rejected the request, or why the patient cancelled.
-  // Empty when no reason was given (a pending request can be cancelled without one).
+  // Reason entered when a doctor rejects a request or a patient cancels.
+  // Empty when no reason applies (e.g., cancelling a still-pending request).
   String reason;
 
-  // Optional note from the doctor when approving, for example "bring your reports".
+  // Optional note added by the doctor on approval (e.g., "bring your reports").
   String approvalNote;
 
   Appointment({
@@ -98,22 +102,23 @@ class Appointment {
     this.approvalNote = '',
   });
 
+  // Appointment end time computed from start + kSlotLength.
   DateTime get end => start.add(kSlotLength);
 
-  // Pending and approved bookings hold their slot.
+  // Pending and approved appointments reserve the doctor's time slot.
   bool get isActive =>
       status == AppointmentStatus.pending ||
       status == AppointmentStatus.approved;
 
-  // An active booking whose visit has not finished yet.
+  // True if the appointment is active and has not finished at [now].
   bool isUpcomingAt(DateTime now) => isActive && end.isAfter(now);
 }
 
-// What the doctor sees at the top of the Requests tab.
+// Aggregated metrics displayed at the top of the doctor's Requests/home summary.
 class DoctorSummary {
-  final int visitsToday; // approved visits today, including ones already finished
-  final int pendingRequests; // requests waiting for an answer (visit not over yet)
-  final Appointment? nextVisit; // the next approved visit today, if there is one
+  final int visitsToday; // approved visits today, including finished ones
+  final int pendingRequests; // active pending requests whose end time hasn't passed
+  final Appointment? nextVisit; // earliest upcoming approved visit today, if any
 
   const DoctorSummary({
     required this.visitsToday,

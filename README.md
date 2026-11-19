@@ -1,94 +1,149 @@
 # Healthbook
 
-A Flutter app for patients and doctors to manage appointments, prescriptions, medical history, test results, and checkup reports.
-
-Built by **DasAkash-1**, **nusrath0631** and **SAMI**.
+A Flutter healthcare management application for patients and doctors to manage medical records, prescriptions, diagnostic test recommendations, medication reminders, and clinic appointments.
 
 ---
 
-## Who is in the app
+## Features
 
-* **Patient** — signs up with name, email, phone, date of birth and password, or logs in. Can find doctors, book and cancel appointments, manage doctor access, upload external prescriptions and test results, customize medicine reminder hours, view checkup reports, and log medicine doses.
-* **Doctor** — signs up with name, email, phone, date of birth, specialty and medical license number, or logs in. Can set open hours, approve or reject appointment requests, and—once verified and granted access by the patient—view medical history and test results, write checkup reports, and create or edit prescriptions.
+### Authentication & Onboarding
+- **Splash & Intro Flow**: Animated launch screen (`SplashScreen`) transitioning into onboarding (`IntroScreen`) before routing to sign-in (`LoginScreen`).
+- **Role-Based Registration (`RegisterScreen`)**:
+  - **Patients (3 steps)**: Account credentials with real-time password strength metering (`PasswordStrengthMeter`), personal details (name, phone, date of birth), and initial medical history (required allergies field plus conditions, surgeries, and family history).
+  - **Doctors (2 steps)**: Account credentials and professional profile (specialty selection and medical license number).
+- **Debug Demo Shortcuts**: One-tap sign-in buttons for demo patient and doctor accounts in debug builds.
+
+### Patient Workflows (`HomePage`)
+- **Health Dashboard & Upcoming Appointment Banner**: Quick access to Doctors, Prescriptions, Test Results, and Appointments, plus a banner highlighting the next approved appointment and dynamic text-scaling support.
+- **Doctor Directory & Booking (`DoctorDirectoryScreen`, `DoctorDetailScreen`)**:
+  - Search by doctor name or specialty, filter by specialty, and toggle availability for the current week.
+  - Verified doctors appear first; unverified doctors are shown as *Verification pending* and cannot be booked.
+  - 7-day booking window (`kBookingWindowDays`) with 20-minute appointment slots, optional visit type (`kVisitTypes`) and patient note, and a 2-step confirmation flow.
+  - Built-in booking rules: enforces a 1-hour buffer when booking different doctors on the same day and prevents duplicate upcoming bookings with the same doctor.
+- **Appointment Tracking (`MyAppointmentsScreen`)**:
+  - View pending, approved, rejected, and cancelled appointments along with doctor approval notes or rejection reasons.
+  - Cancel pending requests freely or cancel approved upcoming appointments with a required reason (`kPatientCancelReasons`).
+- **Prescriptions & Medication Management (`PrescriptionsScreen`, `PrescriptionHistoryScreen`)**:
+  - View active medications, log doses taken, inspect versioned prescription change history, and upload external prescription files (PDFs or images).
+- **Test Results & Recommendations (`TestResultsScreen`, `FileViewerScreen`)**:
+  - Track tests recommended by doctors, upload PDF or image results (`FilePicker`), and inspect uploaded images in-app with pinch-to-zoom (`InteractiveViewer`) or open PDFs externally.
+- **Medical History & Doctor Access Control (`MedicalHistoryScreen`, `DoctorAccessScreen`)**:
+  - Edit personal medical history (allergies, conditions, surgeries, family history).
+  - Explicitly grant or revoke record access per doctor (eligible only after an appointment with that doctor has been approved).
+- **Health Tools & Local Reminders (`BmiScreen`, `ReminderService`)**:
+  - Calculate Body Mass Index (BMI) with WHO adult weight categories and input range validation.
+  - Automatic local reminder scheduling (`planReminders`) for upcoming medication doses and approved appointments (24 hours and 1 hour prior).
+
+### Doctor Workflows (`DoctorHomePage`)
+- **Daily Summary & Request Management (`_RequestsTab`)**:
+  - At-a-glance summary card showing today's visit count, waiting requests, and next scheduled visit.
+  - Approve pending requests with an optional note for the patient, or reject requests with a required reason (`kDoctorRejectReasons`).
+- **7-Day Schedule Management (`_ScheduleTab`)**:
+  - Toggle hourly availability (`08:00`–`16:00`) across the 7-day booking window; hours that have passed or already have bookings are locked.
+- **Shared Patient Records (`_PatientsTab`)**:
+  - View patients who have granted access and inspect/update their prescriptions, read-only medical history, and uploaded test results.
+- **Doctor Profile (`_ProfileTab`)**:
+  - Displays specialty, email, medical license number, and verification status (with a debug-only verification toggle for testing).
 
 ---
 
-## What is built
-
-* **Onboarding & accounts** — splash screen, four-page intro, sign up and log in with validation and a password strength meter.
-* **Doctor directory & booking** — search by name or specialty, filter by availability, and book one-hour slots over the next 7 days. Doctors can open or close hours, approve with an optional note, or reject with a reason.
-* **Prescriptions & test results** — verified doctors with access can prescribe medicines and recommend tests. Patients can upload external prescription PDFs and test result files, view images in-app or open PDFs/other files externally, and log doses as taken or missed.
-* **Doctor checkup reports** — verified doctors with patient access can record checkup reports (diagnosis/summary, optional blood pressure, pulse, temperature, weight, clinical notes, and follow-up advice), and patients or authorized doctors can view them read-only.
-* **Medical history & history log** — patients keep their allergies, conditions, surgeries and current medicines; every doctor prescription change is recorded in a version history.
-* **Reminders & custom schedules** — plans upcoming medicine and approved-appointment reminders, supports customizable daily dose hours per frequency (with defaults at `09:00`, `21:00`, `14:00` and `18:00`), and schedules local notifications on Android, iOS and desktop.
-
----
-
-## Not yet built
-
-* **Real backend & cloud storage** — data currently lives in memory (`ClinicStore`, `PrescriptionStore`, `MedicalHistoryStore`, `CheckupReportStore`, `ReminderScheduleStore`, `AuthService`) and resets when the app restarts. Files are opened from local paths on the device.
-* **Doctor license verification** — doctors start unverified and are verified in memory (`verifyDoctor`); real license checks belong on a server.
-
----
-
-## Business rules
-
-* **Booking window** — doctors can open hours up to **7 days** ahead. Past times cannot be opened or booked.
-* **One upcoming booking per doctor** — a patient can have only one pending or approved appointment with a given doctor at a time, and can book again once it has passed or been cancelled.
-* **No double booking on the same day** — a patient cannot book the same doctor twice on the same calendar day, even after the first visit ends.
-* **Gap between doctors** — a patient must leave at least **1 hour** between appointments with different doctors.
-* **Approving and cancelling** — a doctor can approve a pending request with an optional note (up to 300 characters) or reject it with a reason. Once approved, the doctor cannot cancel it; only the patient can cancel, and must give a reason.
-* **Doctor access & verification** — a patient can grant a doctor access to their prescription, medical history, test results, and checkup reports only after an appointment with that doctor is approved, and can revoke access at any time. A doctor can change prescriptions or write checkup reports only while verified and granted access.
-* **Doses** — a medicine is taken **1 to 4 times a day**. Remaining doses must be a whole number, not negative. The prescription form never fills in a number the doctor did not type. Taking a dose reduces remaining doses by 1 and is blocked at 0; logging a missed dose does not change the count.
-* **Passports & dates of birth** — accounts must be for someone at least **13 years old**.
-
----
-
-## Project layout
+## Project Structure
 
 ```text
 lib/
-  main.dart                      App entry point and intro screens
-  splash_screen.dart             Shown on launch before the intro
-  models/
-    app_models.dart              Doctors, appointments, and summaries
-    checkup_report.dart          Doctor-authored checkup report model
-    medical_history.dart         Patient medical history
-    prescription_models.dart     Prescriptions, medications, tests, history, dose logs
-  services/
-    auth_service.dart            Sign up, log in and the current user
-    checkup_report_store.dart    Checkup report access, validation, and storage
-    clinic_store.dart            Doctors, open hours and bookings
-    medical_history_store.dart   Patient medical history and access checks
-    prescription_store.dart      Prescriptions, access, history and dose logs
-    reminder_schedule_store.dart Custom daily medicine reminder hours
-    reminder_service.dart        Schedules local notifications with the OS
-  utils/
-    allergy_check.dart           Matches medicine names against listed allergies
-    app_colors.dart              Text colours chosen for contrast
-    bmi.dart                     BMI calculation and height/weight checks
-    file_kind.dart               PDF, image or other from a file path
-    formatters.dart              Date and time formatting
-    password_strength.dart       Password strength scoring and tips
-    reminder_planner.dart        Works out when reminders should fire
-    validators.dart              Form field checks
-  widgets/
-    allergy_warning_dialog.dart  Warns the doctor before saving a matching medicine
-    approval_note_dialog.dart    Optional note when approving a request
-    medical_history_form.dart    The medical history fields, editable or read-only
-    open_file_helper.dart        Opens an image in-app or hands other files to the OS
-    password_strength_meter.dart Strength bar shown under the password field
-    reason_dialog.dart           Reason picker used when rejecting or cancelling
-  screens/
-    *_screen.dart / *.dart       The app's screens and home tabs
+├── main.dart                          # App entry point & root MaterialApp configuration
+├── splash_screen.dart                   # Animated splash screen & onboarding intro screen
+├── models/
+│   ├── app_models.dart                  # UserRole, UserProfile, Doctor, Appointment, ClinicSummary
+│   ├── medical_history.dart             # MedicalHistory model
+│   └── prescription_models.dart         # Medication, ExternalPrescription, RecommendedTest, PrescriptionVersion
+├── services/
+│   ├── auth_service.dart                # In-memory authentication, registration, and demo account seeding
+│   ├── clinic_store.dart                # Doctor directory, 7-day schedule, booking rules, and appointment lifecycle
+│   ├── medical_history_store.dart       # Patient medical history storage and access enforcement
+│   ├── prescription_store.dart          # Medications, dose logs, test recommendations, audit history, and access grants
+│   └── reminder_service.dart            # Local notification scheduling wrapper
+├── screens/
+│   ├── bmi_screen.dart                  # BMI calculator & WHO category display
+│   ├── doctor_access_screen.dart        # Patient toggle screen for granting/revoking doctor access
+│   ├── doctor_detail_screen.dart        # Doctor profile, 7-day slot picker, and 2-step booking confirmation
+│   ├── doctor_directory_screen.dart     # Searchable & filterable doctor directory
+│   ├── doctor_home_page.dart            # Doctor portal (Requests, Schedule, Patients, Profile tabs)
+│   ├── feature_screen.dart              # Placeholder screen for upcoming modules
+│   ├── file_viewer_screen.dart          # Pinch-to-zoom viewer for uploaded local images
+│   ├── home_page.dart                   # Patient portal (Home dashboard, Records, Appointments, Profile tabs)
+│   ├── login_screen.dart                # Email/password login & debug demo login shortcuts
+│   ├── medical_history_screen.dart      # Editable (patient) / read-only (doctor) medical history screen
+│   ├── my_appointments_screen.dart      # Patient appointment list & cancellation flow
+│   ├── prescription_history_screen.dart # Chronological audit log of prescription changes
+│   ├── prescriptions_screen.dart        # Medication list, dose logging, and prescription management
+│   ├── register_screen.dart             # Multi-step patient & doctor registration wizard
+│   └── test_results_screen.dart         # Recommended diagnostic tests & PDF/image result uploads
+├── utils/
+│   ├── allergy_check.dart               # Medication-to-allergy matching & warning helpers
+│   ├── app_colors.dart                  # Accessible semantic text & status color constants
+│   ├── bmi.dart                         # BMI calculation & height/weight validation
+│   ├── file_kind.dart                   # File extension classification (PDF, image, other)
+│   ├── formatters.dart                  # Date, day, and time-slot formatting utilities
+│   ├── password_strength.dart           # Password entropy/pattern scoring & actionable tips
+│   ├── reminder_planner.dart            # Pure reminder scheduling logic for meds & appointments
+│   └── validators.dart                  # Form field validators (email, password, phone, DOB, name)
+└── widgets/
+    ├── approval_note_dialog.dart        # Dialog for optional doctor note upon appointment approval
+    ├── medical_history_form.dart        # Reusable medical history form controllers & fields
+    ├── open_file_helper.dart            # Routes uploaded images to FileViewerScreen & PDFs externally
+    ├── password_strength_meter.dart     # Visual strength progress bar & tip indicator
+    └── reason_dialog.dart               # Preset + custom reason picker for cancellations & rejections
+
 test/
-  *_test.dart                    Unit and widget tests
+├── allergy_check_test.dart              # Unit tests for allergy matching & warnings
+├── auth_service_test.dart               # Unit tests for registration, login, and duplicate email checks
+├── bmi_test.dart                        # Unit tests for BMI calculation & input validation
+├── clinic_store_test.dart               # Unit tests for directory, availability, booking rules, and summaries
+├── file_kind_test.dart                  # Unit tests for file extension detection
+├── medical_history_test.dart            # Unit tests for medical history ownership & access rules
+├── password_strength_meter_test.dart    # Widget tests for PasswordStrengthMeter
+├── password_strength_test.dart          # Unit tests for password strength scoring
+├── reminder_planner_test.dart           # Unit tests for medication & appointment reminder planning
+└── widget_test.dart                     # Smoke test for SplashScreen -> IntroScreen transition
 ```
 
 ---
 
-## Running the tests
+## Getting Started
 
+### Prerequisites
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (Dart 3+)
+- Android Studio / Xcode / VS Code with Flutter extensions
+
+### Installation & Running
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/DasAkash-1/healthbook.git
+   cd healthbook
+   ```
+2. **Install dependencies**
+   ```bash
+   flutter pub get
+   ```
+3. **Run the app**
+   ```bash
+   flutter run
+   ```
+
+### Running Tests & Static Analysis
+Run the full unit and widget test suite:
 ```bash
 flutter test
 ```
+
+Run static analysis:
+```bash
+flutter analyze
+```
+
+---
+
+## Architecture Notes
+- **In-Memory Stores**: Authentication (`FakeAuthService`), clinic scheduling (`ClinicStore`), prescriptions/tests (`PrescriptionStore`), and medical history (`MedicalHistoryStore`) currently run as stateful in-memory stores with seeded demo doctors and accounts for local testing.
+- **Local File Storage**: Uploaded test results and external prescriptions reference local device file paths selected via `file_picker` until cloud storage integration is added.

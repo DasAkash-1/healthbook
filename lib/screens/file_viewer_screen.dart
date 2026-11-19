@@ -1,3 +1,5 @@
+// In-app image viewer with pinch-to-zoom for uploaded local image files.
+// PDFs are delegated to external viewers via openUploadedFile.
 import 'dart:io';
 
 import 'package:flutter/material.dart';

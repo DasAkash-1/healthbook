@@ -1,6 +1,7 @@
 import '../models/medical_history.dart';
 import 'prescription_store.dart';
 
+// Domain error thrown when a medical history read or write violates access or validation rules.
 class MedicalHistoryException implements Exception {
   final String message;
   MedicalHistoryException(this.message);
@@ -25,7 +26,7 @@ class MedicalHistoryStore {
 
   MedicalHistoryStore(this._access);
 
-  // Returns null if the patient hasn't recorded anything yet.
+  // Returns the patient's medical history (or null if not saved yet) after checking view access.
   // TODO(backend): read the history from the database.
   MedicalHistory? historyFor(String patientId, String viewerId) {
     if (!_access.canView(patientId, viewerId)) {
@@ -34,6 +35,7 @@ class MedicalHistoryStore {
     return _records[patientId];
   }
 
+  // Saves [history] for [patientId]; only the patient themselves may edit, and allergies are required.
   // TODO(backend): save the history in the database.
   void save({
     required String patientId,

@@ -1,3 +1,5 @@
+// Sign-in screen supporting email/password login, role-based routing to
+// HomePage or DoctorHomePage, and debug-only demo account shortcuts.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -28,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Validates credentials via AuthService and routes by UserRole.
   Future<void> _login() async {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
@@ -59,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Populates demo credentials and immediately triggers sign-in (debug builds only).
   void _demoLogin(String email, String password) {
     _emailCtrl.text = email;
     _passwordCtrl.text = password;

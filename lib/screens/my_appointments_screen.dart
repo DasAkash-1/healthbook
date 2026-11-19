@@ -1,3 +1,5 @@
+// Patient appointments screen showing booking status, doctor notes/reasons,
+// and cancellation controls (requiring a reason once approved).
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
@@ -16,6 +18,7 @@ class MyAppointmentsScreen extends StatefulWidget {
 }
 
 class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
+  // Prompts for a cancellation reason if already approved, or a simple confirmation if pending.
   Future<void> _confirmCancel(Appointment a) async {
     final user = authService.currentUser;
     if (user == null) return;
@@ -111,6 +114,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     );
   }
 
+  // Renders an individual appointment card with status chip, notes/reasons, and cancel action.
   Widget _buildCard(Appointment a) {
     final doctor = clinicStore.doctorById(a.doctorId);
     // Pending and approved visits can be cancelled until they start.
@@ -188,6 +192,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   }
 }
 
+// Badge showing whether an appointment is pending, approved, rejected, or cancelled.
 class _StatusChip extends StatelessWidget {
   final AppointmentStatus status;
 

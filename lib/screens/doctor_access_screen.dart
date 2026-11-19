@@ -1,3 +1,5 @@
+// Patient-only screen for granting or revoking a doctor's access to shared
+// medical records after an appointment with that doctor has been approved.
 import 'package:flutter/material.dart';
 
 import '../services/clinic_store.dart';
@@ -15,6 +17,7 @@ class DoctorAccessScreen extends StatefulWidget {
 }
 
 class _DoctorAccessScreenState extends State<DoctorAccessScreen> {
+  // Grants or revokes access via PrescriptionStore and rebuilds the toggle list.
   void _toggle(String doctorId, {required bool grant}) {
     try {
       if (grant) {

@@ -1,6 +1,7 @@
+// Password strength evaluator used by PasswordStrengthMeter during sign-up.
 enum PasswordStrength { empty, weak, fair, good, strong }
 
-// What the strength meter shows for one password.
+// Output model describing the rating level, UI label, progress bar fill, and optional tip.
 class PasswordStrengthResult {
   final PasswordStrength level;
   final String label; // Weak, Fair, Good or Strong ('' when empty)
@@ -15,7 +16,7 @@ class PasswordStrengthResult {
   });
 }
 
-// Passwords that are tried first by anyone guessing. Lower case.
+// Common passwords and domain/location words checked in lowercase to catch easy guesses.
 const Set<String> _commonPasswords = {
   'password',
   '123456',
@@ -71,8 +72,10 @@ const Set<String> _commonPasswords = {
   'medicine',
 };
 
+// Standard QWERTY keyboard rows used to detect adjacent key runs.
 const List<String> _keyboardRows = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
 
+// Common leetspeak substitutions mapped back to letters before checking common words.
 const Map<String, String> _lookalikes = {
   '0': 'o',
   '1': 'i',
@@ -125,6 +128,7 @@ bool _hasSequence(String lower) {
   return false;
 }
 
+// Awards progressive points for longer passwords (minimum 8 chars required for points).
 int _lengthPoints(int length) {
   if (length < 8) return 0;
   if (length < 10) return 1;
@@ -185,6 +189,7 @@ PasswordStrengthResult checkPasswordStrength(String password, {String email = ''
     }
   }
 
+  // Pick the highest-priority single tip to help the user strengthen their password.
   String? tip;
   if (tooShort) {
     tip = 'Make it longer. Use at least 8 characters.';
@@ -230,7 +235,7 @@ PasswordStrengthResult checkPasswordStrength(String password, {String email = ''
       );
     default:
       return PasswordStrengthResult(
-        level: PasswordStrength.strong,
+        level: level,
         label: 'Strong',
         fraction: 1,
         tip: tip,

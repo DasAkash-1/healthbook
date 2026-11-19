@@ -1,3 +1,5 @@
+// Screen for viewing and updating a patient's medical history (editable by the
+// patient themselves; read-only for a doctor who has been granted access).
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
@@ -22,6 +24,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
   String get _viewerId => authService.currentUser?.id ?? '';
   bool get _isPatient => _viewerId == widget.patientId;
 
+  // Load existing medical history on entry and surface access errors if unauthorized.
   @override
   void initState() {
     super.initState();
@@ -39,6 +42,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
     super.dispose();
   }
 
+  // Persist changes made by the patient and show feedback via SnackBar.
   void _save() {
     try {
       medicalHistoryStore.save(

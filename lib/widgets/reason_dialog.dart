@@ -24,6 +24,7 @@ Future<String?> askForReason(
   );
 }
 
+// Stateful dialog managing preset reason selection, custom "Other" text, and inline errors.
 class _ReasonDialog extends StatefulWidget {
   final String title;
   final String message;
@@ -52,6 +53,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
     super.dispose();
   }
 
+  // Validates selection (and required custom text for "Other") before returning the reason.
   void _submit() {
     final selected = _selected;
     final details = _detailsCtrl.text.trim();
@@ -86,6 +88,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
             children: [
               Text(widget.message),
               const SizedBox(height: 8),
+              // Render preset reason options as tappable rows.
               for (final option in widget.options)
                 ListTile(
                   dense: true,

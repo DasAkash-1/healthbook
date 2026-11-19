@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../utils/reminder_planner.dart';
 import 'clinic_store.dart';
 import 'prescription_store.dart';
+import 'reminder_schedule_store.dart';
 
 // Puts a patient's medicine and appointment reminders on the phone as notifications.
 // What to remind about is decided in planReminders (lib/utils/reminder_planner.dart).
@@ -16,6 +17,7 @@ class ReminderService {
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
+  // Android notification channel configuration for Healthbook reminders.
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'healthbook_reminders',
@@ -26,6 +28,7 @@ class ReminderService {
     ),
   );
 
+  // Initializes the local notification plugin once per app lifecycle.
   Future<void> _init() async {
     if (_initialized) return;
     const settings = InitializationSettings(
@@ -49,8 +52,10 @@ class ReminderService {
         medications: prescriptionStore.medicationsFor(patientId),
         appointments: clinicStore.appointmentsForPatient(patientId),
         doctorName: (id) => clinicStore.doctorById(id)?.name ?? 'Your doctor',
+        customHoursByFrequency: reminderScheduleStore.customHoursMap,
       );
 
+      // Clear previously scheduled local notifications before writing the fresh plan.
       await _plugin.cancelAllPendingNotifications();
       if (plan.isEmpty) return;
 
@@ -82,4 +87,5 @@ class ReminderService {
   }
 }
 
+// App-wide singleton notification scheduler.
 final ReminderService reminderService = ReminderService();

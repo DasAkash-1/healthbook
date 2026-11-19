@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../models/medical_history.dart';
 
-// Holds the text controllers for the medical history fields.
+// Holds the text controllers for the medical history fields so parent screens
+// can populate, read, and dispose them cleanly.
 class MedicalHistoryControllers {
   final allergies = TextEditingController();
   final conditions = TextEditingController();
   final surgeries = TextEditingController();
   final medicines = TextEditingController();
 
+  // Populates all controllers from an existing [MedicalHistory] record.
   void fill(MedicalHistory h) {
     allergies.text = h.allergies;
     conditions.text = h.conditions;
@@ -16,6 +18,7 @@ class MedicalHistoryControllers {
     medicines.text = h.currentMedicines;
   }
 
+  // Builds a trimmed [MedicalHistory] snapshot stamped with the current time.
   MedicalHistory toHistory() {
     return MedicalHistory(
       allergies: allergies.text.trim(),
@@ -34,6 +37,7 @@ class MedicalHistoryControllers {
   }
 }
 
+// Reusable form (or read-only viewer when [readOnly] is true) for patient medical history.
 class MedicalHistoryFields extends StatelessWidget {
   final MedicalHistoryControllers controllers;
   final bool readOnly;
@@ -44,6 +48,7 @@ class MedicalHistoryFields extends StatelessWidget {
     this.readOnly = false,
   });
 
+  // Helper that styles each multi-line medical history input consistently.
   Widget _field(TextEditingController c, String label, String hint) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),

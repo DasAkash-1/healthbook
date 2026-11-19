@@ -1,3 +1,6 @@
+// Main navigation shell for logged-in doctors with four tabs:
+// Requests (approve/reject & daily summary), Schedule (open/close hours),
+// Patients (shared records), and Profile (verification status & log out).
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 

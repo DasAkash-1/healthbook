@@ -25,11 +25,13 @@ Future<void> openUploadedFile(
   final messenger = ScaffoldMessenger.of(context);
   final navigator = Navigator.of(context);
 
+  // Verify a non-empty local file path exists before attempting to open it.
   if (path.isEmpty || !File(path).existsSync()) {
     messenger.showSnackBar(const SnackBar(content: Text(_missingFileMessage)));
     return;
   }
 
+  // Render image attachments directly in the in-app viewer.
   if (fileKindFor(path) == FileKind.image) {
     navigator.push(
       MaterialPageRoute(
@@ -39,6 +41,7 @@ Future<void> openUploadedFile(
     return;
   }
 
+  // Delegate PDFs and other documents to the OS handler and map failure cases cleanly.
   final result = await OpenFilex.open(path);
   if (result.type == ResultType.done) return;
 
