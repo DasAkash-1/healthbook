@@ -6,6 +6,7 @@ import '../models/prescription_models.dart';
 import '../services/auth_service.dart';
 import '../services/prescription_store.dart';
 import '../utils/formatters.dart';
+import 'checkup_reports_screen.dart';
 import 'create_prescription_screen.dart';
 import 'doctor_access_screen.dart';
 import 'medical_history_screen.dart';
@@ -15,7 +16,11 @@ import 'test_results_screen.dart';
 import '../utils/app_colors.dart';
 import '../widgets/open_file_helper.dart';
 
-// Shared by the patient and by a doctor with access.
+// Shared screen for viewing a patient's prescriptions, medications, and records.
+// - A patient views their own medications, logs doses (Taken/Missed), uploads external PDFs,
+//   and manages doctor access.
+// - A verified doctor with access can create prescriptions, edit/remove medications,
+//   and inspect medical history, test results, version history, and checkup reports.
 class PrescriptionsScreen extends StatefulWidget {
   final String patientId;
   final bool isDoctor;
@@ -41,6 +46,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  // Records whether the patient took or missed a dose and updates remaining doses.
   void _logDose(Medication m, {required bool taken}) {
     try {
       prescriptionStore.logDose(
@@ -54,6 +60,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     }
   }
 
+  // Lets a patient pick a PDF prescription from an outside clinic and attach it.
   Future<void> _uploadExternalPrescription() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -331,6 +338,20 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
         elevation: 0,
         title: const Text('Prescriptions & History'),
         actions: [
+          if (canView)
+            IconButton(
+              icon: const Icon(Icons.assignment_outlined),
+              tooltip: 'Checkup reports',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CheckupReportsScreen(
+                    patientId: widget.patientId,
+                    isDoctor: widget.isDoctor,
+                  ),
+                ),
+              ),
+            ),
           if (canView)
             IconButton(
               icon: const Icon(Icons.science_outlined),
