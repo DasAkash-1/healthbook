@@ -30,6 +30,8 @@ class ClinicStore {
   final List<Doctor> _doctors = [];
   // doctorId -> hours the doctor has opened (exact hour marks)
   final Map<String, Set<DateTime>> _openHours = {};
+  // doctorId -> (hour -> consultation fee)
+  final Map<String, Map<DateTime, double>> _slotFees = {};
   final Set<String> _verified = {};
   final List<Appointment> _appointments = [];
   int _nextId = 1;
@@ -45,9 +47,27 @@ class ClinicStore {
   // Sample doctors so patients can try the flow before real doctors sign up.
   void _seedDoctors() {
     final seeds = [
-      const Doctor(id: 'seed-1', name: 'Dr. Sarah Ahmed', specialty: 'Cardiology'),
-      const Doctor(id: 'seed-2', name: 'Dr. Karim Hossain', specialty: 'General Practice'),
-      const Doctor(id: 'seed-3', name: 'Dr. Nusrat Jahan', specialty: 'Dermatology'),
+      const Doctor(
+        id: 'seed-1',
+        name: 'Dr. Sarah Ahmed',
+        specialty: 'Cardiology',
+        chamberAddress: 'HealthPoint Diagnostic Center, 2nd Floor, Zindabazar, Sylhet, Bangladesh',
+        assistantPhone: '+880 1700-000101',
+      ),
+      const Doctor(
+        id: 'seed-2',
+        name: 'Dr. Karim Hossain',
+        specialty: 'General Practice',
+        chamberAddress: 'City Care Medical Complex, 3rd Floor, Kajolshah, Sylhet, Bangladesh',
+        assistantPhone: '+880 1700-000102',
+      ),
+      const Doctor(
+        id: 'seed-3',
+        name: 'Dr. Nusrat Jahan',
+        specialty: 'Dermatology',
+        chamberAddress: 'Green Life Consultation Center, 4th Floor, Subhanighat, Sylhet, Bangladesh',
+        assistantPhone: '+880 1700-000103',
+      ),
     ];
     _doctors.addAll(seeds);
     _verified.addAll(seeds.map((d) => d.id));
@@ -56,8 +76,11 @@ class ClinicStore {
     final tomorrow = _dayStart(_now()).add(const Duration(days: 1));
     for (final doctor in seeds) {
       final hours = _openHours.putIfAbsent(doctor.id, () => <DateTime>{});
+      final fees = _slotFees.putIfAbsent(doctor.id, () => {});
       for (var h = 9; h < 17; h++) {
-        hours.add(DateTime(tomorrow.year, tomorrow.month, tomorrow.day, h));
+        final slotTime = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, h);
+        hours.add(slotTime);
+        fees[slotTime] = 800.0;
       }
     }
   }
@@ -169,11 +192,24 @@ class ClinicStore {
     return false;
   }
 
-  // ---------- Doctor schedule ----------
+  // ---------- Doctor schedule & Consultation Fees ----------
 
-  // Opens or closes one hour. Closing is refused if that hour has bookings.
+  void setSlotFee(String doctorId, DateTime hour, double fee) {
+    final normalized = _hourStart(hour);
+    if (fee < 0) {
+      throw BookingException('Consultation fee cannot be negative.');
+    }
+    _slotFees.putIfAbsent(doctorId, () => {})[normalized] = fee;
+  }
+
+  double? feeForSlot(String doctorId, DateTime hour) {
+    final normalized = _hourStart(hour);
+    return _slotFees[doctorId]?[normalized] ?? 800.0; // Default sample fee for backward compatibility in tests
+  }
+
+  // Open or closes one hour. Closing is refused if that hour has bookings.
   // TODO(backend): save the open or closed hour in the database.
-  void setHourOpen(String doctorId, DateTime hour, bool open) {
+  void setHourOpen(String doctorId, DateTime hour, bool open, {double? fee}) {
     final normalized = _hourStart(hour);
     final hours = _openHours.putIfAbsent(doctorId, () => <DateTime>{});
     if (open) {
@@ -183,6 +219,9 @@ class ClinicStore {
         );
       }
       hours.add(normalized);
+      if (fee != null) {
+        setSlotFee(doctorId, normalized, fee);
+      }
     } else {
       if (_isBooked(doctorId, normalized)) {
         throw BookingException(
@@ -190,6 +229,7 @@ class ClinicStore {
         );
       }
       hours.remove(normalized);
+      _slotFees[doctorId]?.remove(normalized);
     }
   }
 
@@ -261,6 +301,9 @@ class ClinicStore {
     if (_isBooked(doctorId, normalizedStart)) {
       throw BookingException('This slot has already been booked.');
     }
+
+    final fee = feeForSlot(doctorId, normalizedStart) ?? 800.0;
+
     // One upcoming booking per doctor, so other patients get a chance too.
     if (_hasUpcomingBookingWith(patientId, doctorId)) {
       throw BookingException(
@@ -285,6 +328,7 @@ class ClinicStore {
       start: normalizedStart,
       visitType: visitType,
       note: note,
+      consultationFee: fee,
     );
     _appointments.add(appointment);
     return appointment;

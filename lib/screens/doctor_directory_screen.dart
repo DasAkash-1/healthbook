@@ -131,10 +131,32 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
                             doctor.name,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text(
-                            verified
-                                ? doctor.specialty
-                                : '${doctor.specialty} • Verification pending',
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                verified
+                                    ? doctor.specialty
+                                    : '${doctor.specialty} • Verification pending',
+                              ),
+                              if (doctor.chamberAddress.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        doctor.chamberAddress,
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                           trailing: verified ? const Icon(Icons.chevron_right) : null,
                           onTap: () => Navigator.push(

@@ -46,6 +46,9 @@ class AppUser {
   final UserRole role;
   final String phone; // empty for seeded demo accounts
   final DateTime? dateOfBirth; // null for seeded demo accounts
+  final String? profilePhotoPath;
+  final String? gender;
+  final String? homeAddress;
 
   const AppUser({
     required this.id,
@@ -53,7 +56,30 @@ class AppUser {
     required this.role,
     this.phone = '',
     this.dateOfBirth,
+    this.profilePhotoPath,
+    this.gender,
+    this.homeAddress,
   });
+
+  AppUser copyWith({
+    String? name,
+    String? phone,
+    DateTime? dateOfBirth,
+    String? profilePhotoPath,
+    String? gender,
+    String? homeAddress,
+  }) {
+    return AppUser(
+      id: id,
+      name: name ?? this.name,
+      role: role,
+      phone: phone ?? this.phone,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      profilePhotoPath: profilePhotoPath ?? this.profilePhotoPath,
+      gender: gender ?? this.gender,
+      homeAddress: homeAddress ?? this.homeAddress,
+    );
+  }
 }
 
 // Doctor directory entry managed by ClinicStore.
@@ -62,13 +88,70 @@ class Doctor {
   final String name;
   final String specialty;
   final String licenseNumber;
+  final String chamberAddress;
+  final String assistantPhone;
+  final String biography;
+  final List<String> qualifications;
+  final int yearsOfExperience;
+  final String hospitalAffiliation;
+  final String profilePhotoPath;
+  final String gender;
+  final String homeAddress;
+  final DateTime? dateOfBirth;
+  final String phone;
 
   const Doctor({
     required this.id,
     required this.name,
     required this.specialty,
     this.licenseNumber = '',
+    this.chamberAddress = '',
+    this.assistantPhone = '',
+    this.biography = '',
+    this.qualifications = const [],
+    this.yearsOfExperience = 0,
+    this.hospitalAffiliation = '',
+    this.profilePhotoPath = '',
+    this.gender = '',
+    this.homeAddress = '',
+    this.dateOfBirth,
+    this.phone = '',
   });
+
+  Doctor copyWith({
+    String? name,
+    String? specialty,
+    String? licenseNumber,
+    String? chamberAddress,
+    String? assistantPhone,
+    String? biography,
+    List<String>? qualifications,
+    int? yearsOfExperience,
+    String? hospitalAffiliation,
+    String? profilePhotoPath,
+    String? gender,
+    String? homeAddress,
+    DateTime? dateOfBirth,
+    String? phone,
+  }) {
+    return Doctor(
+      id: id,
+      name: name ?? this.name,
+      specialty: specialty ?? this.specialty,
+      licenseNumber: licenseNumber ?? this.licenseNumber,
+      chamberAddress: chamberAddress ?? this.chamberAddress,
+      assistantPhone: assistantPhone ?? this.assistantPhone,
+      biography: biography ?? this.biography,
+      qualifications: qualifications ?? this.qualifications,
+      yearsOfExperience: yearsOfExperience ?? this.yearsOfExperience,
+      hospitalAffiliation: hospitalAffiliation ?? this.hospitalAffiliation,
+      profilePhotoPath: profilePhotoPath ?? this.profilePhotoPath,
+      gender: gender ?? this.gender,
+      homeAddress: homeAddress ?? this.homeAddress,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      phone: phone ?? this.phone,
+    );
+  }
 }
 
 // Represents a patient's appointment request or scheduled visit with a doctor.
@@ -89,6 +172,9 @@ class Appointment {
   // Optional note added by the doctor on approval (e.g., "bring your reports").
   String approvalNote;
 
+  // Snapshot of consultation fee at the time of booking.
+  final double consultationFee;
+
   Appointment({
     required this.id,
     required this.patientId,
@@ -100,6 +186,7 @@ class Appointment {
     this.status = AppointmentStatus.pending,
     this.reason = '',
     this.approvalNote = '',
+    this.consultationFee = 0.0,
   });
 
   // Appointment end time computed from start + kSlotLength.

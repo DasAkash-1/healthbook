@@ -1,6 +1,6 @@
 // Main navigation shell for logged-in doctors with four tabs:
-// Requests (approve/reject & daily summary), Schedule (open/close hours),
-// Patients (shared records), and Profile (verification status & log out).
+// Requests (approve/reject & daily summary), Schedule (open/close hours & fees),
+// Patients (shared records), and Profile (verification status, profile editing, change password & log out).
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -15,7 +15,6 @@ import 'login_screen.dart';
 import 'prescriptions_screen.dart';
 import '../utils/app_colors.dart';
 
-// Hours a doctor can open, as start times (08:00 to 16:00).
 const int _firstHour = 8;
 const int _lastHour = 16;
 
@@ -92,19 +91,19 @@ class _RequestsTab extends StatefulWidget {
 
 class _RequestsTabState extends State<_RequestsTab> {
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
 
-  // The doctor can add an optional note, for example "bring your previous reports".
   Future<void> _approve(Appointment a) async {
     final note = await askForApprovalNote(
       context,
       patientName: a.patientName.isEmpty ? 'The patient' : a.patientName,
       when: '${formatDay(a.start)} • ${formatSlot(a.start)}',
     );
-    if (note == null || !mounted) return;
+    if (!mounted || note == null) return;
 
     try {
       clinicStore.approveAppointment(a.id, widget.doctorId, note: note);
@@ -114,7 +113,6 @@ class _RequestsTabState extends State<_RequestsTab> {
     }
   }
 
-  // Rejecting needs a reason, which the patient sees.
   Future<void> _reject(Appointment a) async {
     final reason = await askForReason(
       context,
@@ -123,7 +121,7 @@ class _RequestsTabState extends State<_RequestsTab> {
       options: kDoctorRejectReasons,
       confirmLabel: 'Reject request',
     );
-    if (reason == null || !mounted) return;
+    if (!mounted || reason == null) return;
 
     try {
       clinicStore.rejectAppointment(a.id, widget.doctorId, reason: reason);
@@ -156,9 +154,27 @@ class _RequestsTabState extends State<_RequestsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            name,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              if (a.consultationFee > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCE6FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '৳${a.consultationFee.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF102A66), fontSize: 13),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -247,7 +263,6 @@ class _RequestsTabState extends State<_RequestsTab> {
     );
   }
 
-  // Today's visits, requests waiting for an answer, and the next visit.
   Widget _summaryCard() {
     final summary = clinicStore.summaryForDoctor(widget.doctorId);
     final next = summary.nextVisit;
@@ -305,7 +320,6 @@ class _RequestsTabState extends State<_RequestsTab> {
         all.where((a) => a.status == AppointmentStatus.pending).toList();
     final approved =
         all.where((a) => a.status == AppointmentStatus.approved).toList();
-    // Cancelled visits that have not happened yet, so the doctor sees why a slot is free.
     final cancelled = all
         .where((a) => a.status == AppointmentStatus.cancelled && a.end.isAfter(now))
         .toList();
@@ -343,7 +357,7 @@ class _RequestsTabState extends State<_RequestsTab> {
   }
 }
 
-// ---------- Schedule ----------
+// ---------- Schedule & Fees ----------
 
 class _ScheduleTab extends StatefulWidget {
   final String doctorId;
@@ -370,14 +384,87 @@ class _ScheduleTabState extends State<_ScheduleTab> {
     _selectedDay = _days.first;
   }
 
-  void _toggle(DateTime hour, {required bool open}) {
+  Future<void> _toggle(DateTime hour, {required bool open}) async {
+    double? fee = clinicStore.feeForSlot(widget.doctorId, hour);
+    if (open) {
+      fee = await showDialog<double>(
+        context: context,
+        builder: (ctx) {
+          final ctrl = TextEditingController(text: fee != null ? fee.toStringAsFixed(0) : '800');
+          return AlertDialog(
+            title: const Text('Set Consultation Fee'),
+            content: TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Consultation Fee (BDT ৳)'),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () {
+                  final parsed = double.tryParse(ctrl.text.trim());
+                  if (parsed == null || parsed < 0) return;
+                  Navigator.pop(ctx, parsed);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+      if (!mounted) return;
+      if (fee == null) return;
+    }
+
     try {
-      clinicStore.setHourOpen(widget.doctorId, hour, open);
+      clinicStore.setHourOpen(widget.doctorId, hour, open, fee: fee);
       setState(() {});
     } on BookingException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
+    }
+  }
+
+  Future<void> _editFee(DateTime hour) async {
+    final currentFee = clinicStore.feeForSlot(widget.doctorId, hour) ?? 800.0;
+    final fee = await showDialog<double>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController(text: currentFee.toStringAsFixed(0));
+        return AlertDialog(
+          title: const Text('Edit Consultation Fee'),
+          content: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Consultation Fee (BDT ৳)'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                final parsed = double.tryParse(ctrl.text.trim());
+                if (parsed == null || parsed < 0) return;
+                Navigator.pop(ctx, parsed);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted) return;
+    if (fee != null) {
+      try {
+        clinicStore.setSlotFee(widget.doctorId, hour, fee);
+        setState(() {});
+      } on BookingException catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
     }
   }
 
@@ -385,14 +472,15 @@ class _ScheduleTabState extends State<_ScheduleTab> {
     final booked = clinicStore.isHourBooked(widget.doctorId, hour);
     final open = clinicStore.isHourOpen(widget.doctorId, hour);
     final passed = !hour.isAfter(now);
+    final fee = clinicStore.feeForSlot(widget.doctorId, hour);
 
     final String subtitle;
     if (passed) {
       subtitle = 'Passed';
     } else if (booked) {
-      subtitle = 'Booked by a patient';
+      subtitle = 'Booked by a patient ${fee != null ? '• ৳${fee.toStringAsFixed(0)}' : ''}';
     } else if (open) {
-      subtitle = 'Open for booking';
+      subtitle = 'Open for booking • Fee: ${fee != null ? '৳${fee.toStringAsFixed(0)}' : 'Not set'}';
     } else {
       subtitle = 'Closed';
     }
@@ -407,11 +495,21 @@ class _ScheduleTabState extends State<_ScheduleTab> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(subtitle),
-        trailing: Switch(
-          value: open,
-          onChanged: (passed || booked)
-              ? null
-              : (v) => _toggle(hour, open: v),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (open && !passed)
+              TextButton(
+                onPressed: () => _editFee(hour),
+                child: const Text('Edit Fee'),
+              ),
+            Switch(
+              value: open,
+              onChanged: (passed || booked)
+                  ? null
+                  : (v) => _toggle(hour, open: v),
+            ),
+          ],
         ),
       ),
     );
@@ -443,7 +541,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Turn hours on to offer them to patients. Booked hours cannot be turned off.',
+          'Turn hours on and set consultation fees to offer them to patients. Booked hours cannot be turned off.',
           style: TextStyle(color: Colors.grey[700]),
         ),
         const SizedBox(height: 12),
@@ -540,6 +638,195 @@ class _ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<_ProfileTab> {
+  Future<void> _editProfile(BuildContext context, Doctor doctor, AppUser user) async {
+    final nameCtrl = TextEditingController(text: doctor.name);
+    final phoneCtrl = TextEditingController(text: doctor.phone);
+    final addressCtrl = TextEditingController(text: doctor.homeAddress);
+    final specialtyCtrl = TextEditingController(text: doctor.specialty);
+    final licenseCtrl = TextEditingController(text: doctor.licenseNumber);
+    final bioCtrl = TextEditingController(text: doctor.biography);
+    final qualCtrl = TextEditingController(text: doctor.qualifications.join(', '));
+    final expCtrl = TextEditingController(text: doctor.yearsOfExperience.toString());
+    final hospitalCtrl = TextEditingController(text: doctor.hospitalAffiliation);
+    final chamberCtrl = TextEditingController(text: doctor.chamberAddress);
+    final assistantCtrl = TextEditingController(text: doctor.assistantPhone);
+    String gender = doctor.gender.isNotEmpty ? doctor.gender : 'Other';
+    DateTime dob = doctor.dateOfBirth ?? DateTime(1980, 1, 1);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Doctor Profile'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name *')),
+                const SizedBox(height: 10),
+                TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number')),
+                const SizedBox(height: 10),
+                TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Home Address')),
+                const SizedBox(height: 10),
+                TextField(controller: specialtyCtrl, decoration: const InputDecoration(labelText: 'Specialization *')),
+                const SizedBox(height: 10),
+                TextField(controller: licenseCtrl, decoration: const InputDecoration(labelText: 'License Number *')),
+                const SizedBox(height: 10),
+                TextField(controller: bioCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'Biography')),
+                const SizedBox(height: 10),
+                TextField(controller: qualCtrl, decoration: const InputDecoration(labelText: 'Qualifications (comma separated)')),
+                const SizedBox(height: 10),
+                TextField(controller: expCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Years of Experience')),
+                const SizedBox(height: 10),
+                TextField(controller: hospitalCtrl, decoration: const InputDecoration(labelText: 'Hospital/Clinic Affiliation')),
+                const SizedBox(height: 10),
+                TextField(controller: chamberCtrl, decoration: const InputDecoration(labelText: 'Chamber Address')),
+                const SizedBox(height: 10),
+                TextField(controller: assistantCtrl, decoration: const InputDecoration(labelText: 'Assistant Contact Phone')),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: ['Male', 'Female', 'Other'].contains(gender) ? gender : 'Other',
+                  items: ['Male', 'Female', 'Other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                  onChanged: (v) => setDialogState(() => gender = v ?? 'Other'),
+                  decoration: const InputDecoration(labelText: 'Gender'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty || specialtyCtrl.text.trim().isEmpty || licenseCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in required fields.')),
+                  );
+                  return;
+                }
+                try {
+                  await authService.updateProfile(
+                    email: user.id,
+                    profile: UserProfile(
+                      name: nameCtrl.text.trim(),
+                      phone: phoneCtrl.text.trim(),
+                      dateOfBirth: dob,
+                      specialty: specialtyCtrl.text.trim(),
+                      licenseNumber: licenseCtrl.text.trim(),
+                      gender: gender,
+                      homeAddress: addressCtrl.text.trim(),
+                      biography: bioCtrl.text.trim(),
+                      qualifications: qualCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
+                      yearsOfExperience: int.tryParse(expCtrl.text.trim()) ?? 0,
+                      hospitalAffiliation: hospitalCtrl.text.trim(),
+                      chamberAddress: chamberCtrl.text.trim(),
+                      assistantPhone: assistantCtrl.text.trim(),
+                    ),
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pop(ctx);
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profile updated successfully.')),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString())),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changePassword(BuildContext context, String email) async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Change Password'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentCtrl,
+                  obscureText: obscureCurrent,
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureCurrent = !obscureCurrent),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newCtrl,
+                  obscureText: obscureNew,
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureNew = !obscureNew),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Confirm New Password'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (newCtrl.text != confirmCtrl.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('New passwords do not match.')),
+                  );
+                  return;
+                }
+                try {
+                  await authService.changePassword(
+                    email: email,
+                    currentPassword: currentCtrl.text,
+                    newPassword: newCtrl.text,
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Password changed successfully.')),
+                  );
+                } on AuthException catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.message)),
+                  );
+                }
+              },
+              child: const Text('Update Password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = authService.currentUser;
@@ -547,70 +834,97 @@ class _ProfileTabState extends State<_ProfileTab> {
     final verified = clinicStore.isVerified(widget.doctorId);
     final statusColor = verified ? Colors.green : Colors.orange;
 
-    return Padding(
+    return ListView(
       padding: const EdgeInsets.all(24),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundColor: Color(0xFFDCE6FF),
-              child: Icon(Icons.person, size: 40, color: Color(0xFF102A66)),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              user?.name ?? '',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              doctor?.specialty ?? '',
-              style: TextStyle(color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 4),
-            Text(user?.id ?? '', style: TextStyle(color: Colors.grey[700])),
-            if (doctor != null && doctor.licenseNumber.isNotEmpty) ...[
+      children: [
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircleAvatar(
+                radius: 40,
+                backgroundColor: Color(0xFFDCE6FF),
+                child: Icon(Icons.person, size: 40, color: Color(0xFF102A66)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                user?.name ?? '',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
               Text(
-                'License: ${doctor.licenseNumber}',
+                doctor?.specialty ?? '',
                 style: TextStyle(color: Colors.grey[700]),
               ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                verified ? 'Verified doctor' : 'Verification pending',
-                style: TextStyle(
-                  color: verified ? kTextSuccess : kTextWarning,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 4),
+              Text(user?.id ?? '', style: TextStyle(color: Colors.grey[700])),
+              if (doctor != null && doctor.licenseNumber.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'License: ${doctor.licenseNumber}',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  verified ? 'Verified doctor' : 'Verification pending',
+                  style: TextStyle(
+                    color: verified ? kTextSuccess : kTextWarning,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            if (kDebugMode && !verified) ...[
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () {
-                  clinicStore.verifyDoctor(widget.doctorId);
-                  setState(() {});
-                },
-                child: const Text('Mark as verified (test only)'),
+              if (kDebugMode && !verified) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () {
+                    clinicStore.verifyDoctor(widget.doctorId);
+                    setState(() {});
+                  },
+                  child: const Text('Mark as verified (test only)'),
+                ),
+              ],
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      if (doctor != null && user != null) {
+                        _editProfile(context, doctor, user);
+                      }
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit Profile'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      if (user != null) {
+                        _changePassword(context, user.id);
+                      }
+                    },
+                    icon: const Icon(Icons.lock_outline),
+                    label: const Text('Password'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              OutlinedButton.icon(
+                onPressed: () => _logout(context),
+                icon: const Icon(Icons.logout),
+                label: const Text('Log out'),
               ),
             ],
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: () => _logout(context),
-              icon: const Icon(Icons.logout),
-              label: const Text('Log out'),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

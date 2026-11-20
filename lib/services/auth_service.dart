@@ -10,7 +10,7 @@ const String kDemoPassword = 'Demo1234';
 const String kDemoPatientEmail = 'demo.patient@healthbook.test';
 const String kDemoDoctorEmail = 'demo.doctor@healthbook.test';
 
-// Additional profile fields collected during account registration.
+// Additional profile fields collected during account registration and profile editing.
 class UserProfile {
   final String name;
   final String phone;
@@ -18,6 +18,15 @@ class UserProfile {
   final String? specialty; // doctors only
   final String? licenseNumber; // doctors only
   final MedicalHistory? medicalHistory; // patients only
+  final String? profilePhotoPath;
+  final String? gender;
+  final String? homeAddress;
+  final String? biography;
+  final List<String>? qualifications;
+  final int? yearsOfExperience;
+  final String? hospitalAffiliation;
+  final String? chamberAddress;
+  final String? assistantPhone;
 
   const UserProfile({
     required this.name,
@@ -26,6 +35,15 @@ class UserProfile {
     this.specialty,
     this.licenseNumber,
     this.medicalHistory,
+    this.profilePhotoPath,
+    this.gender,
+    this.homeAddress,
+    this.biography,
+    this.qualifications,
+    this.yearsOfExperience,
+    this.hospitalAffiliation,
+    this.chamberAddress,
+    this.assistantPhone,
   });
 }
 
@@ -55,6 +73,17 @@ abstract class AuthService {
     required String password,
   });
 
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  Future<void> updateProfile({
+    required String email,
+    required UserProfile profile,
+  });
+
   void logout();
 }
 
@@ -69,9 +98,6 @@ class _Account {
 // TEMPORARY: accounts are kept in memory and cleared when the app restarts.
 // Passwords are kept in plain text here so login can be tested. This is NOT
 // secure. Replace with a Firebase version later.
-//
-// TODO(backend): replace this whole class with the real login service. Passwords must
-// never be stored or compared inside the app. Keep the AuthService methods the same.
 class FakeAuthService implements AuthService {
   final Map<String, _Account> _accounts = {};
   AppUser? _current;
@@ -80,9 +106,6 @@ class FakeAuthService implements AuthService {
     if (kDebugMode) _seedDemoAccounts();
   }
 
-  // TODO(backend): demo accounts are for testing only. Remove them with this in-memory version.
-  // Demo doctor is verified and has an approved appointment with the demo patient
-  // for tomorrow at 9:00, so prescription access can be tested straight away.
   void _seedDemoAccounts() {
     const patientId = kDemoPatientEmail;
     const doctorId = kDemoDoctorEmail;
@@ -101,12 +124,14 @@ class FakeAuthService implements AuthService {
       name: 'Demo Doctor',
       specialty: 'General Practice',
       licenseNumber: 'DEMO-0001',
+      chamberAddress: 'Sunrise Diagnostic Complex, 2nd Floor, Ambarkhana, Sylhet, Bangladesh',
+      assistantPhone: '+880 1700-000104',
     ));
     clinicStore.verifyDoctor(doctorId);
 
     final now = DateTime.now();
     final tomorrowNine = DateTime(now.year, now.month, now.day + 1, 9);
-    clinicStore.setHourOpen(doctorId, tomorrowNine, true);
+    clinicStore.setHourOpen(doctorId, tomorrowNine, true, fee: 800.0);
     final appt = clinicStore.requestAppointment(
       patientId: patientId,
       doctorId: doctorId,
@@ -124,6 +149,12 @@ class FakeAuthService implements AuthService {
         surgeries: 'None',
         currentMedicines: 'None',
         updatedAt: DateTime.now(),
+        bloodGroup: 'O+',
+        emergencyContactName: 'John Doe',
+        emergencyContactRelationship: 'Spouse',
+        emergencyContactPhone: '+880 1711-000000',
+        heightCm: 170,
+        weightKg: 70,
       ),
     );
   }
@@ -131,11 +162,6 @@ class FakeAuthService implements AuthService {
   @override
   AppUser? get currentUser => _current;
 
-  // Validates role-specific fields, creates the account in memory, and seeds
-  // initial patient medical history or unverified doctor directory profile.
-  //
-  // TODO(backend): create the account with the real login service and save the profile
-  // (name, phone, date of birth, specialty, license number, medical history) in the database.
   @override
   Future<void> register({
     required String email,
@@ -150,7 +176,7 @@ class FakeAuthService implements AuthService {
       throw AuthException('An account already exists for this email.');
     }
 
-    if (role == UserRole.doctor && profile.specialty == null) {
+    if (role == UserRole.doctor && (profile.specialty == null || profile.specialty!.trim().isEmpty)) {
       throw AuthException('Please choose your specialty.');
     }
     if (role == UserRole.doctor &&
@@ -171,8 +197,14 @@ class FakeAuthService implements AuthService {
       role: role,
       phone: profile.phone,
       dateOfBirth: profile.dateOfBirth,
+      profilePhotoPath: profile.profilePhotoPath,
+      gender: profile.gender,
+      homeAddress: profile.homeAddress,
     );
     _accounts[key] = _Account(password: password, user: user);
+    if (_current == null && email.trim().toLowerCase() == key) {
+      // If registering while active session (unlikely) or just created
+    }
 
     if (role == UserRole.patient) {
       medicalHistoryStore.save(
@@ -189,14 +221,22 @@ class FakeAuthService implements AuthService {
           name: profile.name,
           specialty: profile.specialty!,
           licenseNumber: profile.licenseNumber!.trim(),
+          chamberAddress: profile.chamberAddress ?? 'Main Chamber, Sylhet, Bangladesh',
+          assistantPhone: profile.assistantPhone ?? '+880 1700-000100',
+          biography: profile.biography ?? '',
+          qualifications: profile.qualifications ?? [],
+          yearsOfExperience: profile.yearsOfExperience ?? 0,
+          hospitalAffiliation: profile.hospitalAffiliation ?? '',
+          profilePhotoPath: profile.profilePhotoPath ?? '',
+          gender: profile.gender ?? '',
+          homeAddress: profile.homeAddress ?? '',
+          dateOfBirth: profile.dateOfBirth,
+          phone: profile.phone,
         ),
       );
     }
   }
 
-  // Authenticates a user by normalized email + password and sets [currentUser].
-  //
-  // TODO(backend): sign in with the real login service and load the user's profile.
   @override
   Future<AppUser> login({
     required String email,
@@ -214,9 +254,93 @@ class FakeAuthService implements AuthService {
     return account.user;
   }
 
-  // Clears the active session.
-  //
-  // TODO(backend): sign out of the real login service.
+  @override
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final key = email.trim().toLowerCase();
+    final account = _accounts[key];
+    if (account == null || account.password != currentPassword) {
+      throw AuthException('Incorrect current password.');
+    }
+    if (newPassword.trim().length < 6) {
+      throw AuthException('New password must be at least 6 characters.');
+    }
+    _accounts[key] = _Account(password: newPassword, user: account.user);
+  }
+
+  @override
+  Future<void> updateProfile({
+    required String email,
+    required UserProfile profile,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final key = email.trim().toLowerCase();
+    final account = _accounts[key];
+    if (account == null) {
+      throw AuthException('Account not found.');
+    }
+
+    final updatedUser = AppUser(
+      id: key,
+      name: profile.name,
+      role: account.user.role,
+      phone: profile.phone,
+      dateOfBirth: profile.dateOfBirth,
+      profilePhotoPath: profile.profilePhotoPath ?? account.user.profilePhotoPath,
+      gender: profile.gender ?? account.user.gender,
+      homeAddress: profile.homeAddress ?? account.user.homeAddress,
+    );
+
+    _accounts[key] = _Account(password: account.password, user: updatedUser);
+    if (_current?.id == key) {
+      _current = updatedUser;
+    }
+
+    if (account.user.role == UserRole.doctor) {
+      final existingDoc = clinicStore.doctorById(key);
+      if (existingDoc != null) {
+        clinicStore.addDoctor(existingDoc.copyWith(
+          name: profile.name,
+          specialty: profile.specialty ?? existingDoc.specialty,
+          licenseNumber: profile.licenseNumber ?? existingDoc.licenseNumber,
+          chamberAddress: profile.chamberAddress ?? existingDoc.chamberAddress,
+          assistantPhone: profile.assistantPhone ?? existingDoc.assistantPhone,
+          biography: profile.biography ?? existingDoc.biography,
+          qualifications: profile.qualifications ?? existingDoc.qualifications,
+          yearsOfExperience: profile.yearsOfExperience ?? existingDoc.yearsOfExperience,
+          hospitalAffiliation: profile.hospitalAffiliation ?? existingDoc.hospitalAffiliation,
+          profilePhotoPath: profile.profilePhotoPath ?? existingDoc.profilePhotoPath,
+          gender: profile.gender ?? existingDoc.gender,
+          homeAddress: profile.homeAddress ?? existingDoc.homeAddress,
+          dateOfBirth: profile.dateOfBirth,
+          phone: profile.phone,
+        ));
+      } else {
+        clinicStore.addDoctor(Doctor(
+          id: key,
+          name: profile.name,
+          specialty: profile.specialty ?? 'General Practice',
+          licenseNumber: profile.licenseNumber ?? '',
+          chamberAddress: profile.chamberAddress ?? '',
+          assistantPhone: profile.assistantPhone ?? '',
+          biography: profile.biography ?? '',
+          qualifications: profile.qualifications ?? [],
+          yearsOfExperience: profile.yearsOfExperience ?? 0,
+          hospitalAffiliation: profile.hospitalAffiliation ?? '',
+          profilePhotoPath: profile.profilePhotoPath ?? '',
+          gender: profile.gender ?? '',
+          homeAddress: profile.homeAddress ?? '',
+          dateOfBirth: profile.dateOfBirth,
+          phone: profile.phone,
+        ));
+      }
+    }
+  }
+
   @override
   void logout() {
     _current = null;
