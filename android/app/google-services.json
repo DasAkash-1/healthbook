@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "235894253273",
+    "project_id": "healthbook-c1d57",
+    "storage_bucket": "healthbook-c1d57.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:235894253273:android:9d4810b1aa1214621480c8",
+        "android_client_info": {
+          "package_name": "com.example.healthbook_test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVI8molam0rhZ3iuqsl6z9KwZxnIMmst8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
