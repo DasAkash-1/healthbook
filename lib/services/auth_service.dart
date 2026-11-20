@@ -315,8 +315,9 @@ class FirebaseAuthService implements AuthService {
 
 
     // age jemon memory te store hoto, ekhono shei store gula bhore dichhi
+    // ekhon id hishebe uid dichhi, email na
     _fillStores(
-      id: key,
+      id: cred.user!.uid,
       role: role,
       name: profile.name,
       specialty: profile.specialty,
@@ -352,9 +353,12 @@ class FirebaseAuthService implements AuthService {
       throw AuthException(_message(e));
     }
 
+    // uid ta alada kore rakhlam, ekhon theke eta e user er asol id
+    final uid = cred.user!.uid;
+
 
     // login hoye gele firestore theke oi user er info niye ashchi
-    final snap = await _db.collection('users').doc(cred.user!.uid).get();
+    final snap = await _db.collection('users').doc(uid).get();
     final data = snap.data();
 
     if (data == null) {
@@ -367,7 +371,8 @@ class FirebaseAuthService implements AuthService {
     final role = data['role'] == 'doctor' ? UserRole.doctor : UserRole.patient;
 
     final user = AppUser(
-      id: key,
+      id: uid,
+      email: key,
       name: data['name'] as String? ?? '',
       role: role,
       phone: data['phone'] as String? ?? '',
@@ -392,7 +397,7 @@ class FirebaseAuthService implements AuthService {
 
     // store gula abar bhore dilam
     _fillStores(
-      id: key,
+      id: uid,
       role: role,
       name: user.name,
       specialty: data['specialty'] as String?,

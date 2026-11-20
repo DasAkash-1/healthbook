@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> {
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text(user?.id ?? '', style: TextStyle(color: Colors.grey[700])),
+            Text(user?.email ?? '', style: TextStyle(color: Colors.grey[700])),
             const SizedBox(height: 32),
             OutlinedButton.icon(
               onPressed: _logout,

@@ -569,7 +569,7 @@ class _ProfileTabState extends State<_ProfileTab> {
               style: TextStyle(color: Colors.grey[700]),
             ),
             const SizedBox(height: 4),
-            Text(user?.id ?? '', style: TextStyle(color: Colors.grey[700])),
+            Text(user?.email ?? '', style: TextStyle(color: Colors.grey[700])),
             if (doctor != null && doctor.licenseNumber.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
