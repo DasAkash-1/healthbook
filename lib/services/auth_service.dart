@@ -288,8 +288,12 @@ class FirebaseAuthService implements AuthService {
 
 
     // account hoye gelo, ekhon baki info firestore e save korbo
+    // batch diye duto document ek sathe save hocche, ekta fail korle dutoi hobe na
     try {
-      await _db.collection('users').doc(cred.user!.uid).set({
+      final batch = _db.batch();
+
+      // private profile
+      batch.set(_db.collection('users').doc(cred.user!.uid), {
         'email': key,
         'name': profile.name,
         'role': role.name,
@@ -307,6 +311,21 @@ class FirebaseAuthService implements AuthService {
             'updatedAt': Timestamp.fromDate(history.updatedAt),
           },
       });
+
+
+      // doctor hole public directory te o ekta document
+      if (role == UserRole.doctor) {
+        batch.set(_db.collection('doctors').doc(cred.user!.uid), {
+          'name': profile.name,
+          'specialty': profile.specialty,
+          'licenseNumber': profile.licenseNumber?.trim(),
+          'verified': false, // admin console theke true korbe
+          'openHours': [], // doctor jei ghonta gula khulbe ekhane jabe
+        });
+      }
+
+      await batch.commit();
+
     } on FirebaseException catch (e) {
       // firestore e save na hole account ta delete kore dilam, jate profile chara account na thake
       await cred.user!.delete();
@@ -404,6 +423,17 @@ class FirebaseAuthService implements AuthService {
       licenseNumber: data['licenseNumber'] as String?,
       history: history,
     );
+
+
+
+    // login er pore sob doctor ar tader hours niye ashlam
+    try {
+      await clinicStore.loadDoctors();
+    } catch (e) {
+      debugPrint('doctor load hoyni: $e'); // load na hole o login cholbe
+    }
+
+
 
 
     // ekhon theke currentUser eta
