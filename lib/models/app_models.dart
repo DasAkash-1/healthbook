@@ -41,7 +41,8 @@ const List<String> kDoctorRejectReasons = [
 
 // Authenticated user profile stored in memory by AuthService.
 class AppUser {
-  final String id; // lowercase email used as unique user ID
+  final String id; // ekhon theke firebase uid, age email chilo
+  final String email; // email ta alada field e rakhlam, profile screen e dekhanor jonno
   final String name;
   final UserRole role;
   final String phone; // empty for seeded demo accounts
@@ -52,6 +53,7 @@ class AppUser {
 
   const AppUser({
     required this.id,
+    this.email = '', // default khali, jate FakeAuthService er kaj na bhange
     required this.name,
     required this.role,
     this.phone = '',

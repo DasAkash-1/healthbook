@@ -1,4 +1,6 @@
 import '../models/app_models.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // database er jonno
+import 'package:flutter/foundation.dart'; // debugPrint er jonno
 
 // Longest note a doctor can add when approving a request.
 const int kMaxApprovalNoteLength = 300;
@@ -108,6 +110,41 @@ class ClinicStore {
       _doctors[idx] = doctor;
     } else {
       _doctors.add(doctor);
+    }
+  }
+
+
+  // firestore theke sob doctor ane, sathe verified ar open hours o
+  Future<void> loadDoctors() async {
+    final snap = await FirebaseFirestore.instance.collection('doctors').get();
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+
+
+      // doctor er basic info, age jemon addDoctor diye dilam
+      addDoctor(Doctor(
+        id: doc.id,
+        name: data['name'] as String? ?? '',
+        specialty: data['specialty'] as String? ?? '',
+        licenseNumber: data['licenseNumber'] as String? ?? '',
+      ));
+
+
+      // verified hole set e rakhlam, na hole set theke bad dilam
+      if (data['verified'] == true) {
+        _verified.add(doc.id);
+      } else {
+        _verified.remove(doc.id);
+      }
+
+
+      // open hours Timestamp list e ache, seta DateTime set e convert korlam
+      final hours = (data['openHours'] as List<dynamic>? ?? [])
+          .map((t) => (t as Timestamp).toDate())
+          .toSet();
+
+      _openHours[doc.id] = hours;
     }
   }
 
@@ -231,7 +268,27 @@ class ClinicStore {
       hours.remove(normalized);
       _slotFees[doctorId]?.remove(normalized);
     }
+    // local e kora hoye gelo, ekhon firestore e o save kore rakhlam
+    _saveHour(doctorId, normalized, open);
   }
+
+
+  // ekta ghonta firestore er openHours list e add ba remove kore
+  // fail korle app crash korbe na, shudhu log e dekhabe
+  Future<void> _saveHour(String doctorId, DateTime hour, bool open) async {
+    try {
+      final stamp = Timestamp.fromDate(hour);
+
+      await FirebaseFirestore.instance.collection('doctors').doc(doctorId).update({
+        'openHours': open
+            ? FieldValue.arrayUnion([stamp])
+            : FieldValue.arrayRemove([stamp]),
+      });
+    } catch (e) {
+      debugPrint('hour save hoyni: $e');
+    }
+  }
+
 
   // ---------- Booking (patient) ----------
 

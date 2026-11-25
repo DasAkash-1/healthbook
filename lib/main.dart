@@ -3,8 +3,16 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'screens/register_screen.dart';
 import 'screens/login_screen.dart';
 import 'splash_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+Future<void> main() async {
+
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 

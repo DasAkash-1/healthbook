@@ -5,6 +5,9 @@ import '../models/medical_history.dart';
 import 'clinic_store.dart';
 import 'medical_history_store.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb; // login er jonno, fb naam dilam jate nijer AuthException er sathe gondogol na hoy
+
 // Seeded test credentials used only in debug builds so developers/testers can sign in quickly.
 const String kDemoPassword = 'Demo1234';
 const String kDemoPatientEmail = 'demo.patient@healthbook.test';
@@ -347,5 +350,395 @@ class FakeAuthService implements AuthService {
   }
 }
 
-// The app-wide service. Swap FakeAuthService for the Firebase version later.
-final AuthService authService = FakeAuthService();
+// Real login using Firebase Auth. Name, role, phone etc thake Firestore e, users/{uid} er moddhe.
+class FirebaseAuthService implements AuthService {
+
+  // firebase auth ar firestore er object, eigula diye sob kaj hobe
+  fb.FirebaseAuth get _auth => fb.FirebaseAuth.instance;
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
+
+
+  // ekhon je login kora ache tar info ekhane rakhbo
+  AppUser? _current;
+
+  @override
+  AppUser? get currentUser => _current;
+
+
+
+  // ---------------- REGISTER ----------------
+
+  @override
+  Future<void> register({
+    required String email,
+    required String password,
+    required UserRole role,
+    required UserProfile profile,
+  }) async {
+
+    // email ke lowercase kore id banailam, age jemon chilo
+    final key = email.trim().toLowerCase();
+
+
+    // ekhane form er check, doctor hole specialty ar license lagbe
+    if (role == UserRole.doctor && profile.specialty == null) {
+      throw AuthException('Please choose your specialty.');
+    }
+
+    if (role == UserRole.doctor &&
+        (profile.licenseNumber == null || profile.licenseNumber!.trim().isEmpty)) {
+      throw AuthException('Please enter your medical license number.');
+    }
+
+
+    // patient hole allergies must, na thakle "None" likhte hobe
+    final history = profile.medicalHistory;
+
+    if (role == UserRole.patient &&
+        (history == null || history.allergies.trim().isEmpty)) {
+      throw AuthException('Please enter your allergies, or write "None".');
+    }
+
+
+    // ekhane firebase e account banano hocche
+    fb.UserCredential cred;
+
+    try {
+      cred = await _auth.createUserWithEmailAndPassword(email: key, password: password);
+    } on fb.FirebaseAuthException catch (e) {
+      // email age theke thakle ba password weak hole ekhane ashbe
+      throw AuthException(_message(e));
+    }
+
+
+    // account hoye gelo, ekhon baki info firestore e save korbo
+    // batch diye duto document ek sathe save hocche, ekta fail korle dutoi hobe na
+    try {
+      final batch = _db.batch();
+
+      // private profile
+      batch.set(_db.collection('users').doc(cred.user!.uid), {
+        'email': key,
+        'name': profile.name,
+        'role': role.name,
+        'phone': profile.phone,
+        'dateOfBirth': Timestamp.fromDate(profile.dateOfBirth),
+        'specialty': profile.specialty,
+        'licenseNumber': profile.licenseNumber?.trim(),
+
+        if (history != null)
+          'medicalHistory': {
+            'allergies': history.allergies,
+            'conditions': history.conditions,
+            'surgeries': history.surgeries,
+            'currentMedicines': history.currentMedicines,
+            'updatedAt': Timestamp.fromDate(history.updatedAt),
+          },
+      });
+
+
+      // doctor hole public directory te o ekta document
+      if (role == UserRole.doctor) {
+        batch.set(_db.collection('doctors').doc(cred.user!.uid), {
+          'name': profile.name,
+          'specialty': profile.specialty,
+          'licenseNumber': profile.licenseNumber?.trim(),
+          'verified': false, // admin console theke true korbe
+          'openHours': [], // doctor jei ghonta gula khulbe ekhane jabe
+        });
+      }
+
+      await batch.commit();
+
+    } on FirebaseException catch (e) {
+      // firestore e save na hole account ta delete kore dilam, jate profile chara account na thake
+      await cred.user!.delete();
+      throw AuthException('Could not save your profile (${e.code}). Please try again.');
+    }
+
+
+    // age jemon memory te store hoto, ekhono shei store gula bhore dichhi
+    // ekhon id hishebe uid dichhi, email na
+    _fillStores(
+      id: cred.user!.uid,
+      role: role,
+      name: profile.name,
+      specialty: profile.specialty,
+      licenseNumber: profile.licenseNumber?.trim(),
+      history: history,
+    );
+
+
+    // register er pore screen login e pathay, tai ekhane signout kore dilam
+    await _auth.signOut();
+  }
+
+
+
+  // ---------------- LOGIN ----------------
+
+  @override
+  Future<AppUser> login({
+    required String email,
+    required String password,
+  }) async {
+
+    final key = email.trim().toLowerCase();
+
+
+    // firebase e email password diye login
+    fb.UserCredential cred;
+
+    try {
+      cred = await _auth.signInWithEmailAndPassword(email: key, password: password);
+    } on fb.FirebaseAuthException catch (e) {
+      // vul password hole ekhane ashbe
+      throw AuthException(_message(e));
+    }
+
+    // uid ta alada kore rakhlam, ekhon theke eta e user er asol id
+    final uid = cred.user!.uid;
+
+
+    // login hoye gele firestore theke oi user er info niye ashchi
+    final snap = await _db.collection('users').doc(uid).get();
+    final data = snap.data();
+
+    if (data == null) {
+      await _auth.signOut();
+      throw AuthException('Account profile not found. Please register again.');
+    }
+
+
+    // firestore er data theke AppUser banalam, screen gula eta ei use kore
+    final role = data['role'] == 'doctor' ? UserRole.doctor : UserRole.patient;
+
+    final user = AppUser(
+      id: uid,
+      email: key,
+      name: data['name'] as String? ?? '',
+      role: role,
+      phone: data['phone'] as String? ?? '',
+      dateOfBirth: (data['dateOfBirth'] as Timestamp?)?.toDate(),
+    );
+
+
+    // patient er medical history thakle seta ferot niye ashlam
+    MedicalHistory? history;
+    final h = data['medicalHistory'] as Map<String, dynamic>?;
+
+    if (h != null) {
+      history = MedicalHistory(
+        allergies: h['allergies'] as String? ?? 'None',
+        conditions: h['conditions'] as String? ?? '',
+        surgeries: h['surgeries'] as String? ?? '',
+        currentMedicines: h['currentMedicines'] as String? ?? '',
+        updatedAt: (h['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    }
+
+
+    // store gula abar bhore dilam
+    _fillStores(
+      id: uid,
+      role: role,
+      name: user.name,
+      specialty: data['specialty'] as String?,
+      licenseNumber: data['licenseNumber'] as String?,
+      history: history,
+    );
+
+
+
+    // login er pore sob doctor ar tader hours niye ashlam
+    try {
+      await clinicStore.loadDoctors();
+    } catch (e) {
+      debugPrint('doctor load hoyni: $e'); // load na hole o login cholbe
+    }
+
+
+
+
+    // ekhon theke currentUser eta
+    _current = user;
+    return user;
+  }
+
+
+
+  // ---------------- LOGOUT ----------------
+
+  @override
+  void logout() {
+    // firebase theke logout
+    _auth.signOut();
+
+    // ar amader app er user o muche dilam
+    _current = null;
+  }
+
+  @override
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || user.email?.toLowerCase() != email.trim().toLowerCase()) {
+        throw AuthException('No user signed in.');
+      }
+      if (newPassword.trim().length < 6) {
+        throw AuthException('New password must be at least 6 characters.');
+      }
+      final cred = fb.EmailAuthProvider.credential(email: email, password: currentPassword);
+      await user.reauthenticateWithCredential(cred);
+      await user.updatePassword(newPassword);
+    } on fb.FirebaseAuthException catch (e) {
+      throw AuthException(_message(e));
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw AuthException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> updateProfile({
+    required String email,
+    required UserProfile profile,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw AuthException('No user signed in.');
+    }
+    final uid = user.uid;
+
+    try {
+      final userDocRef = _db.collection('users').doc(uid);
+      final docSnap = await userDocRef.get();
+      final data = docSnap.data();
+      final roleStr = data?['role'] as String? ?? 'patient';
+      final role = roleStr == 'doctor' ? UserRole.doctor : UserRole.patient;
+
+      await userDocRef.update({
+        'name': profile.name,
+        'phone': profile.phone,
+        'dateOfBirth': Timestamp.fromDate(profile.dateOfBirth),
+        if (profile.gender != null) 'gender': profile.gender,
+        if (profile.homeAddress != null) 'homeAddress': profile.homeAddress,
+        if (role == UserRole.doctor) ...{
+          if (profile.specialty != null) 'specialty': profile.specialty,
+          if (profile.licenseNumber != null) 'licenseNumber': profile.licenseNumber?.trim(),
+        },
+      });
+
+      if (role == UserRole.doctor) {
+        await _db.collection('doctors').doc(uid).set({
+          'name': profile.name,
+          'specialty': profile.specialty ?? '',
+          'licenseNumber': profile.licenseNumber?.trim() ?? '',
+        }, SetOptions(merge: true));
+
+        final existingDoc = clinicStore.doctorById(uid);
+        if (existingDoc != null) {
+          clinicStore.addDoctor(existingDoc.copyWith(
+            name: profile.name,
+            specialty: profile.specialty ?? existingDoc.specialty,
+            licenseNumber: profile.licenseNumber ?? existingDoc.licenseNumber,
+            chamberAddress: profile.chamberAddress ?? existingDoc.chamberAddress,
+            assistantPhone: profile.assistantPhone ?? existingDoc.assistantPhone,
+            biography: profile.biography ?? existingDoc.biography,
+            qualifications: profile.qualifications ?? existingDoc.qualifications,
+            yearsOfExperience: profile.yearsOfExperience ?? existingDoc.yearsOfExperience,
+            hospitalAffiliation: profile.hospitalAffiliation ?? existingDoc.hospitalAffiliation,
+            profilePhotoPath: profile.profilePhotoPath ?? existingDoc.profilePhotoPath,
+            gender: profile.gender ?? existingDoc.gender,
+            homeAddress: profile.homeAddress ?? existingDoc.homeAddress,
+            dateOfBirth: profile.dateOfBirth,
+            phone: profile.phone,
+          ));
+        }
+      }
+
+      _current = AppUser(
+        id: uid,
+        email: email.trim().toLowerCase(),
+        name: profile.name,
+        role: role,
+        phone: profile.phone,
+        dateOfBirth: profile.dateOfBirth,
+        gender: profile.gender,
+        homeAddress: profile.homeAddress,
+        profilePhotoPath: profile.profilePhotoPath,
+      );
+    } on FirebaseException catch (e) {
+      throw AuthException('Could not update profile (${e.code}).');
+    }
+  }
+
+
+
+  // ---------------- HELPERS ----------------
+
+  // doctor hole clinicStore e, patient hole medicalHistoryStore e rakhchi
+  // TODO: pore eigula o firestore e nite hobe, ekhono memory te
+  void _fillStores({
+    required String id,
+    required UserRole role,
+    required String name,
+    String? specialty,
+    String? licenseNumber,
+    MedicalHistory? history,
+  }) {
+
+    if (role == UserRole.patient && history != null) {
+      medicalHistoryStore.save(patientId: id, editorId: id, history: history);
+    }
+
+    if (role == UserRole.doctor) {
+      clinicStore.addDoctor(Doctor(
+        id: id,
+        name: name,
+        specialty: specialty ?? '',
+        licenseNumber: licenseNumber ?? '',
+      ));
+    }
+  }
+
+
+  // firebase er error code ke user er bujhar moto message e convert
+  String _message(fb.FirebaseAuthException e) {
+    switch (e.code) {
+
+    // register screen "already exists" dhore step 1 e pathay
+      case 'email-already-in-use':
+        return 'An account already exists for this email.';
+
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+
+      case 'invalid-credential':
+      case 'wrong-password':
+      case 'user-not-found':
+        return 'Incorrect email or password.';
+
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+
+      case 'network-request-failed':
+        return 'No internet connection.';
+
+      default:
+        return 'Something went wrong (${e.code}).';
+    }
+  }
+}
+
+
+
+// The app-wide service. Ekhon real firebase, test e FakeAuthService() ei use hocche.
+final AuthService authService = FirebaseAuthService();
