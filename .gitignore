@@ -1,16 +1,15 @@
 # Miscellaneous
-*.class
 *.log
 *.pyc
 *.swp
 .DS_Store
-.atom/
-.build/
-.buildlog/
 .history
 .svn/
-.swiftpm/
-migrate_working_dir/
+
+# Windows
+Thumbs.db
+desktop.ini
+.vs/
 
 # IntelliJ related
 *.iml
@@ -18,20 +17,34 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# VS Code: launch configuration and tasks may be committed, so this stays commented out.
 #.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
 /coverage/
+
+# Release binaries
+*.apk
+*.aab
+*.ipa
+
+# Secrets and environment files
+.env
+*.env.local
+
+# Firebase CLI logs
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
 # Symbolication related
 app.*.symbols
