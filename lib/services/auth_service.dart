@@ -742,3 +742,4 @@ class FirebaseAuthService implements AuthService {
 
 // The app-wide service. Ekhon real firebase, test e FakeAuthService() ei use hocche.
 final AuthService authService = FirebaseAuthService();
+//final AuthService authService = kDebugMode ? FakeAuthService() : FirebaseAuthService();
