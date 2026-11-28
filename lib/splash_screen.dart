@@ -1,18 +1,31 @@
-import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Animated launch screen shown before the app's main/intro screen.
-// Runs a smooth entrance (fade + scale), a subtle pulsing heart/ECG emblem,
-// and then transitions to [nextScreen] after [minimumDisplayTime].
+// Launch screen shown before the intro screen: a plain white page with the
+// caduceus emblem and the "Healthbook" title fading in, and five dots that
+// pulse one after another along the bottom.
+//
+// It moves on to [nextScreen] only when both of these are true:
+//   1. [minimumDisplayTime] has passed, so the animation always gets to play.
+//   2. [loadTask] (if given) has finished, or [maximumWaitTime] has run out,
+//      so a slow or failing task can never leave the user stuck on this screen.
 class SplashScreen extends StatefulWidget {
   final Widget nextScreen;
   final Duration minimumDisplayTime;
+  final Duration maximumWaitTime;
+
+  // Work to finish while the splash is showing, such as loading images.
+  // It gets the splash's BuildContext (needed for precacheImage).
+  final Future<void> Function(BuildContext context)? loadTask;
 
   const SplashScreen({
     super.key,
     required this.nextScreen,
-    this.minimumDisplayTime = const Duration(milliseconds: 3000),
+    this.minimumDisplayTime = const Duration(milliseconds: 2500),
+    this.maximumWaitTime = const Duration(seconds: 6),
+    this.loadTask,
   });
 
   @override
@@ -20,18 +33,13 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
-  // Controls the initial entrance fade and pop-in scale animation.
-  late AnimationController _entranceController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
-  // Loops continuously to gently pulse the heart/ECG ring.
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  // Timer that schedules automatic navigation to [widget.nextScreen].
-  Timer? _timer;
+    with SingleTickerProviderStateMixin {
+  // One controller runs the whole entrance: logo first, then the title, then the dots.
+  late final AnimationController _entranceController;
+  late final Animation<double> _logoFade;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _titleFade;
+  late final Animation<double> _dotsFade;
 
   @override
   void initState() {
@@ -42,137 +50,136 @@ class _SplashScreenState extends State<SplashScreen>
 
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1500),
     );
 
-    _fadeAnimation = CurvedAnimation(
+    _logoFade = CurvedAnimation(
       parent: _entranceController,
-      curve: Curves.easeOut,
+      curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+    _logoScale = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: Curves.easeOutBack,
+        curve: const Interval(0.0, 0.55, curve: Curves.easeOutBack),
       ),
     );
 
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+    _titleFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.35, 0.85, curve: Curves.easeOut),
+    );
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
+    _dotsFade = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
     );
 
     _entranceController.forward();
 
-    // Navigate smoothly after the splash display duration finishes.
-    _timer = Timer(widget.minimumDisplayTime, () {
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => widget.nextScreen,
-          transitionDuration: const Duration(milliseconds: 600),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-        ),
-      );
-    });
+    // Start the loading check after the first frame, because loading images
+    // needs a fully built BuildContext.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _waitForAppToLoad());
   }
 
   @override
   void dispose() {
-    // Always cancel timers and dispose animation controllers to prevent memory leaks.
-    _timer?.cancel();
     _entranceController.dispose();
-    _pulseController.dispose();
     super.dispose();
+  }
+
+  // Waits for the minimum display time AND the loading task, then moves on.
+  Future<void> _waitForAppToLoad() async {
+    if (!mounted) return;
+
+    final minimumTime = Future<void>.delayed(widget.minimumDisplayTime);
+    final loading = _runLoadTask().timeout(
+      widget.maximumWaitTime,
+      onTimeout: () {},
+    );
+
+    await Future.wait([minimumTime, loading]);
+    if (!mounted) return;
+    _goToNextScreen();
+  }
+
+  Future<void> _runLoadTask() async {
+    final task = widget.loadTask;
+    if (task == null) return;
+    try {
+      await task(context);
+    } catch (_) {
+      // A failed preload must never stop the app from starting.
+    }
+  }
+
+  void _goToNextScreen() {
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => widget.nextScreen,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8EEFF),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Subtle blueprint/clinical grid drawn in the background.
-          const Positioned.fill(
-            child: CustomPaint(
-              painter: _GridPainter(),
-            ),
-          ),
-
           // Centered emblem and brand title.
           Center(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Animated heart + ECG waveform emblem.
-                    AnimatedBuilder(
-                      animation: _pulseAnimation,
-                      builder: (context, child) {
-                        return SizedBox(
-                          width: 200,
-                          height: 200,
-                          child: CustomPaint(
-                            painter: _HeartLogoPainter(
-                              pulseValue: _pulseAnimation.value,
-                            ),
-                          ),
-                        );
-                      },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Caduceus emblem: fades in while growing slightly.
+                FadeTransition(
+                  opacity: _logoFade,
+                  child: ScaleTransition(
+                    scale: _logoScale,
+                    child: Image.asset(
+                      'assets/caduceus.png',
+                      height: 160,
+                      filterQuality: FilterQuality.high,
                     ),
-
-                    const SizedBox(height: 30),
-
-                    // Brand title.
-                    const Text(
-                      'Healthbook',
-                      style: TextStyle(
-                        fontFamily: 'Georgia',
-                        fontSize: 48,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
-                        color: Color(0xFF102A66),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+
+                const SizedBox(height: 30),
+
+                // Brand title, fading in a moment after the emblem.
+                FadeTransition(
+                  opacity: _titleFade,
+                  child: const Text(
+                    'Healthbook',
+                    style: TextStyle(
+                      fontFamily: 'Georgia',
+                      fontSize: 48,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1.0,
+                      color: Color(0xFF102A66),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // Three static indicator dots along the bottom edge.
+          // Five loading dots along the bottom edge.
           Positioned(
             bottom: 60,
             left: 0,
             right: 0,
             child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _LoadingDot(),
-                  SizedBox(width: 12),
-                  _LoadingDot(),
-                  SizedBox(width: 12),
-                  _LoadingDot(),
-                ],
-              ),
+              opacity: _dotsFade,
+              child: const _PulsingDots(),
             ),
           ),
         ],
@@ -181,145 +188,82 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-// Small circular dot used in the bottom indicator row.
-class _LoadingDot extends StatelessWidget {
-  const _LoadingDot();
+// Row of dots that pulse in turn, so a wave travels from left to right.
+class _PulsingDots extends StatefulWidget {
+  const _PulsingDots();
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xFF6688C9),
+  State<_PulsingDots> createState() => _PulsingDotsState();
+}
+
+class _PulsingDotsState extends State<_PulsingDots>
+    with SingleTickerProviderStateMixin {
+  static const int _dotCount = 5;
+  static const double _dotSize = 10;
+  static const double _dotGap = 12;
+  static const Color _dotColor = Color(0xFF6688C9);
+
+  // Tweak the look here. Set _minScale and _maxScale both to 1.0 for a
+  // fade-only version where the dots do not grow or shrink.
+  static const double _minScale = 0.6;
+  static const double _maxScale = 1.15;
+  static const double _minOpacity = 0.35;
+
+  static const Duration _cycleLength = Duration(milliseconds: 1400);
+  static const double _stagger = 0.1; // delay between neighbours, as a share of a cycle
+  static const double _activePart = 0.6; // share of a cycle each dot spends pulsing
+
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: _cycleLength)
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _buildDot(int index) {
+    // Each dot is a little behind the one on its left.
+    final t = (_controller.value - index * _stagger) % 1.0;
+    final wave = t < _activePart ? math.sin(math.pi * t / _activePart) : 0.0;
+
+    final scale = _minScale + (_maxScale - _minScale) * wave;
+    final opacity = _minOpacity + (1 - _minOpacity) * wave;
+
+    return Transform.scale(
+      scale: scale,
+      child: Container(
+        width: _dotSize,
+        height: _dotSize,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _dotColor.withValues(alpha: opacity),
+        ),
       ),
     );
   }
-}
-
-// Custom painter that draws a faint evenly spaced background grid.
-class _GridPainter extends CustomPainter {
-  const _GridPainter();
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x226080B8)
-      ..strokeWidth = 0.6;
-
-    const double spacing = 20;
-
-    for (double x = 0; x <= size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-
-    for (double y = 0; y <= size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// Custom painter that renders the pulsing ring, heart outline, and ECG pulse line.
-class _HeartLogoPainter extends CustomPainter {
-  final double pulseValue;
-
-  const _HeartLogoPainter({required this.pulseValue});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final double baseRadius = 78;
-
-    // Outer circular ring scaled by [pulseValue] with a blue gradient shader.
-    final circlePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..shader = LinearGradient(
-        colors: [
-          const Color(0xFFAFC8F5).withValues(alpha: 0.8),
-          const Color(0xFF416EB5),
-        ],
-      ).createShader(
-        Rect.fromCircle(center: center, radius: baseRadius * pulseValue),
-      );
-
-    canvas.drawCircle(center, baseRadius * pulseValue, circlePaint);
-
-    // Heart stroke styling.
-    final heartPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF102A66);
-
-    // Build symmetrical heart path using cubic Bezier curves.
-    final heartPath = Path();
-    // Heart outline spans about 10px..84px below heartTop, so its visual
-    // centre is ~19px lower than the old -28 offset implied. Shift up to centre it.
-    final heartTop = center.dy - 47;
-
-    heartPath.moveTo(center.dx, heartTop + 20);
-    // Left lobe curve.
-    heartPath.cubicTo(
-      center.dx - 24, heartTop,
-      center.dx - 40, heartTop + 16,
-      center.dx - 40, heartTop + 36,
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (int i = 0; i < _dotCount; i++) ...[
+              if (i > 0) const SizedBox(width: _dotGap),
+              _buildDot(i),
+            ],
+          ],
+        );
+      },
     );
-    // Lower left down to bottom point.
-    heartPath.cubicTo(
-      center.dx - 40, heartTop + 64,
-      center.dx, heartTop + 84,
-      center.dx, heartTop + 84,
-    );
-    // Bottom point up along right lobe.
-    heartPath.cubicTo(
-      center.dx, heartTop + 84,
-      center.dx + 40, heartTop + 64,
-      center.dx + 40, heartTop + 36,
-    );
-    // Right lobe top back to cleft.
-    heartPath.cubicTo(
-      center.dx + 40, heartTop + 16,
-      center.dx + 24, heartTop,
-      center.dx, heartTop + 20,
-    );
-
-    canvas.drawPath(heartPath, heartPaint);
-
-    // ECG heartbeat trace drawn across the heart.
-    final ecgPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF102A66);
-
-    final ecgPath = Path();
-    final ecgY = center.dy - 11; // Centred inside the heart (moved with it)
-
-    ecgPath.moveTo(center.dx - 55, ecgY);
-    ecgPath.lineTo(center.dx - 25, ecgY);
-    ecgPath.lineTo(center.dx - 18, ecgY + 22); // Q-wave downward dip
-    ecgPath.lineTo(center.dx - 8, ecgY - 12);  // R-wave upward spike
-    ecgPath.lineTo(center.dx + 2, ecgY + 5);   // S-wave small bounce
-    ecgPath.lineTo(center.dx + 35, ecgY);
-    ecgPath.lineTo(center.dx + 50, ecgY);
-
-    canvas.drawPath(ecgPath, ecgPaint);
-
-    // Trailing ECG dots to suggest live signal motion.
-    final dotPaint = Paint()..color = const Color(0xFF102A66);
-    canvas.drawCircle(Offset(center.dx + 58, ecgY), 3.5, dotPaint);
-    canvas.drawCircle(Offset(center.dx + 68, ecgY), 2.5, dotPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeartLogoPainter oldDelegate) {
-    return oldDelegate.pulseValue != pulseValue;
   }
 }

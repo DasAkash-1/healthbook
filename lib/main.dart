@@ -16,6 +16,22 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+// Loads the intro images while the splash screen is showing,
+// so the intro pages appear instantly.
+Future<void> _preloadIntroAssets(BuildContext context) async {
+  const paths = [
+    'assets/img_1.png',
+    'assets/img_2.png',
+    'assets/img_3.png',
+    'assets/img_4.png',
+    'assets/logo.png',
+  ];
+  await Future.wait([
+    for (final path in paths)
+      precacheImage(AssetImage(path), context, onError: (error, stackTrace) {}),
+  ]);
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -29,7 +45,10 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const SplashScreen(nextScreen: IntroScreen()),
+      home: const SplashScreen(
+        nextScreen: IntroScreen(),
+        loadTask: _preloadIntroAssets,
+      ),
     );
   }
 }
